@@ -60,14 +60,19 @@ npm run preview  # serve the built bundle
 
 ## Hosting
 
-The app is a static bundle, deployed to GitHub Pages by
-`.github/workflows/deploy.yml` on every push to `main`. Enable it once under
-**Settings → Pages → Build and deployment → Source: GitHub Actions**.
+Live at **https://mohankrishna22.github.io/Investment_tracker/**.
 
-GitHub Pages on a **private** repository requires a paid plan (Pro, Team or
-Enterprise). On a free account the repository has to be public for Pages to serve it
-— worth knowing that the code would then be public, though your investment data
-never is, since it only ever exists in your own browser.
+The app is a static bundle, deployed to GitHub Pages by
+`.github/workflows/deploy.yml` on every push to the default branch. Pages is
+configured under **Settings → Pages → Source: GitHub Actions**.
+
+Two things to know if the deploy ever fails:
+
+- The `github-pages` environment only accepts deployments from the repository's
+  **default branch** — a run from any other branch is rejected before it starts.
+- Pages on the free tier only serves **public** repositories; a private one needs
+  GitHub Pro, Team or Enterprise. Your investment data is unaffected either way,
+  since it only ever exists in your own browser.
 
 ## Stack
 
