@@ -2,9 +2,9 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    # The github-pages environment only accepts deployments from the default
-    # branch, so both candidates are listed and the non-default one no-ops.
-    branches: [main, claude/dazzling-thompson-dyaatf]
+    # Must be the repository's default branch: the github-pages environment
+    # rejects deployments from anywhere else. Change this if the default moves.
+    branches: [claude/dazzling-thompson-dyaatf]
   workflow_dispatch:
 
 permissions:
