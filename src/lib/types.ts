@@ -49,6 +49,8 @@ export interface Settings {
 
 export interface AppData {
   version: number
+  /** ISO timestamp of the last local change; cloud sync compares against it. */
+  updatedAt: string
   ventures: Venture[]
   investments: Investment[]
   payouts: Payout[]

@@ -53,14 +53,33 @@ instantly. Treat it as a curtain that keeps a casual visitor out, not as securit
 
 ## Where the data lives
 
-In `localStorage`, in the browser you use it in. That means:
+In `localStorage` by default — per-browser and per-device, cleared when you clear site
+data. Turn on **cloud sync** and it also lives in a Supabase project you own, so the
+same picture shows up on every device you pair.
 
-- Nothing leaves your device and no one else can see it.
-- It is **per-browser and per-device** — the data does not follow you to your phone.
-- Clearing site data erases it.
+### Setting up cloud sync
 
-So take a backup from **Settings → Download backup** now and then, and restore it on
-any other device you want the same picture on.
+1. Create a free project at [supabase.com](https://supabase.com) (no card needed).
+2. Open **SQL Editor → New query**, paste [`supabase/schema.sql`](supabase/schema.sql)
+   and run it.
+3. In the app: **Settings → Cloud sync**, paste the **Project URL** and **anon public
+   key** from *Project Settings → API*, and hit **Connect**. A random sync ID is
+   generated for you.
+4. On the Mac, hit **Pair another device** and scan the QR with your phone (or open the
+   copied link there). The phone pulls your data down and stays in step from then on.
+
+**How it syncs.** Local changes push about a second and a half after you stop typing.
+Each device pulls when it starts, when you switch back to its tab, and once a minute.
+If the same row was edited on two devices since their last sync, the most recent edit
+wins and the app says so rather than merging silently — so a backup is still worth
+taking before big changes.
+
+**How private it is.** The anon key ships inside the app and is meant to be public, so
+it is not what protects you. The `snapshots` table has row-level security with no
+policies at all — the anon key cannot read or list it directly. The only way in is two
+`security definer` functions that require your **sync ID**, which is 160 random bits and
+never appears in this repository. Keep the sync ID (and the pairing QR/link, which
+contains it) to yourself and your data stays yours.
 
 ## Running it locally
 

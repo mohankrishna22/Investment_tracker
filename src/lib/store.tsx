@@ -13,8 +13,15 @@ import { nextPaletteColor } from './types'
 const STORAGE_KEY = 'investment-tracker/v1'
 const DATA_VERSION = 1
 
+/**
+ * A store nobody has touched must never look freshly edited: stamping it with
+ * "now" would let an empty device win a sync against a device holding real data.
+ */
+export const NEVER = new Date(0).toISOString()
+
 export const emptyData = (): AppData => ({
   version: DATA_VERSION,
+  updatedAt: NEVER,
   ventures: [],
   investments: [],
   payouts: [],
@@ -38,6 +45,7 @@ export function normalise(raw: unknown): AppData {
   const input = raw as Partial<AppData>
   return {
     version: DATA_VERSION,
+    updatedAt: typeof input.updatedAt === 'string' ? input.updatedAt : base.updatedAt,
     ventures: Array.isArray(input.ventures) ? input.ventures : [],
     investments: Array.isArray(input.investments) ? input.investments : [],
     payouts: Array.isArray(input.payouts) ? input.payouts : [],
@@ -66,7 +74,7 @@ interface Store {
   updatePayout: (id: string, patch: Partial<Payout>) => void
   deletePayout: (id: string) => void
   updateSettings: (patch: Partial<Settings>) => void
-  replaceAll: (data: AppData) => void
+  replaceAll: (data: AppData, options?: { keepTimestamp?: boolean }) => void
   resetAll: () => void
 }
 
@@ -98,6 +106,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('storage', onStorage)
   }, [])
 
+  /** Applies a change and stamps it, so sync always knows which copy is newer. */
+  const mutate = useCallback((fn: (d: AppData) => AppData) => {
+    setData((d) => ({ ...fn(d), updatedAt: new Date().toISOString() }))
+  }, [])
+
   const addVenture = useCallback<Store['addVenture']>(
     (v) => {
       const venture: Venture = {
@@ -106,64 +119,76 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         color: v.color || nextPaletteColor(data.ventures.map((x) => x.color)),
         createdAt: new Date().toISOString(),
       }
-      setData((d) => ({ ...d, ventures: [...d.ventures, venture] }))
+      mutate((d) => ({ ...d, ventures: [...d.ventures, venture] }))
       return venture
     },
-    [data.ventures],
+    [data.ventures, mutate],
   )
 
   const updateVenture = useCallback<Store['updateVenture']>((id, patch) => {
-    setData((d) => ({
+    mutate((d) => ({
       ...d,
       ventures: d.ventures.map((v) => (v.id === id ? { ...v, ...patch } : v)),
     }))
-  }, [])
+  }, [mutate])
 
   const deleteVenture = useCallback<Store['deleteVenture']>((id) => {
-    setData((d) => ({
+    mutate((d) => ({
       ...d,
       ventures: d.ventures.filter((v) => v.id !== id),
       investments: d.investments.filter((i) => i.ventureId !== id),
       payouts: d.payouts.filter((p) => p.ventureId !== id),
     }))
-  }, [])
+  }, [mutate])
 
   const addInvestment = useCallback<Store['addInvestment']>((i) => {
-    setData((d) => ({ ...d, investments: [...d.investments, { ...i, id: uid() }] }))
-  }, [])
+    mutate((d) => ({ ...d, investments: [...d.investments, { ...i, id: uid() }] }))
+  }, [mutate])
 
   const updateInvestment = useCallback<Store['updateInvestment']>((id, patch) => {
-    setData((d) => ({
+    mutate((d) => ({
       ...d,
       investments: d.investments.map((i) => (i.id === id ? { ...i, ...patch } : i)),
     }))
-  }, [])
+  }, [mutate])
 
   const deleteInvestment = useCallback<Store['deleteInvestment']>((id) => {
-    setData((d) => ({ ...d, investments: d.investments.filter((i) => i.id !== id) }))
-  }, [])
+    mutate((d) => ({ ...d, investments: d.investments.filter((i) => i.id !== id) }))
+  }, [mutate])
 
   const addPayout = useCallback<Store['addPayout']>((p) => {
-    setData((d) => ({ ...d, payouts: [...d.payouts, { ...p, id: uid() }] }))
-  }, [])
+    mutate((d) => ({ ...d, payouts: [...d.payouts, { ...p, id: uid() }] }))
+  }, [mutate])
 
   const updatePayout = useCallback<Store['updatePayout']>((id, patch) => {
-    setData((d) => ({
+    mutate((d) => ({
       ...d,
       payouts: d.payouts.map((p) => (p.id === id ? { ...p, ...patch } : p)),
     }))
-  }, [])
+  }, [mutate])
 
   const deletePayout = useCallback<Store['deletePayout']>((id) => {
-    setData((d) => ({ ...d, payouts: d.payouts.filter((p) => p.id !== id) }))
-  }, [])
+    mutate((d) => ({ ...d, payouts: d.payouts.filter((p) => p.id !== id) }))
+  }, [mutate])
 
   const updateSettings = useCallback<Store['updateSettings']>((patch) => {
-    setData((d) => ({ ...d, settings: { ...d.settings, ...patch } }))
-  }, [])
+    mutate((d) => ({ ...d, settings: { ...d.settings, ...patch } }))
+  }, [mutate])
 
-  const replaceAll = useCallback<Store['replaceAll']>((next) => setData(normalise(next)), [])
-  const resetAll = useCallback(() => setData(emptyData()), [])
+  const replaceAll = useCallback<Store['replaceAll']>((next, options) => {
+    const normalised = normalise(next)
+    // Adopting a remote snapshot keeps its timestamp; a manual restore is a new change.
+    setData(
+      options?.keepTimestamp
+        ? normalised
+        : { ...normalised, updatedAt: new Date().toISOString() },
+    )
+  }, [])
+  // An erase is a deliberate edit, so it is stamped and syncs out like any other.
+  const resetAll = useCallback(
+    () => setData({ ...emptyData(), updatedAt: new Date().toISOString() }),
+    [],
+  )
 
   const value = useMemo<Store>(
     () => ({

@@ -144,6 +144,7 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.25; letter-spacing: -0.01em; }
   background: var(--surface-2); color: var(--muted); border: 1px solid var(--border);
   text-transform: capitalize;
 }
+.badge-plain { text-transform: none; }
 .badge.active { color: var(--pos); border-color: color-mix(in srgb, var(--pos) 35%, transparent); background: color-mix(in srgb, var(--pos) 12%, transparent); }
 .badge.closed { color: var(--muted); }
 .badge.planned { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 35%, transparent); background: color-mix(in srgb, var(--warn) 12%, transparent); }

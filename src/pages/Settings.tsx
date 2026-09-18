@@ -4,6 +4,7 @@ import { demoData } from '../lib/demo'
 import { download } from '../lib/csv'
 import { ConfirmButton, Field } from '../components/ui'
 import { normalise } from '../lib/store'
+import SyncCard from '../components/SyncCard'
 
 const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'AUD', 'CAD', 'JPY']
 const LOCALES = ['en-IN', 'en-US', 'en-GB', 'de-DE', 'fr-FR', 'ja-JP']
@@ -45,7 +46,8 @@ export default function Settings() {
         <div>
           <h1>Settings</h1>
           <div className="sub">
-            Everything lives in this browser only — no account, no server, nothing leaves your device.
+            Your data lives in this browser. Turn on cloud sync below to share it with your
+            other devices.
           </div>
         </div>
       </div>
@@ -61,6 +63,8 @@ export default function Settings() {
       )}
 
       <div className="grid grid-2">
+        <SyncCard locale={data.settings.locale} />
+
         <div className="card">
           <div className="card-head">
             <h3>Display</h3>
@@ -118,8 +122,8 @@ export default function Settings() {
           </div>
           <div className="card-pad">
             <p className="muted" style={{ marginTop: 0 }}>
-              Browser storage is per-device. Export a backup before clearing site data or moving to a
-              new machine.
+              A backup is a point-in-time copy you keep yourself — worth taking before an erase
+              or a restore, and the only way back if sync ever carries a mistake across devices.
             </p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button onClick={exportBackup}>Download backup (JSON)</button>
@@ -167,7 +171,8 @@ export default function Settings() {
           </div>
           <div className="card-pad">
             <p className="muted" style={{ marginTop: 0 }}>
-              Deletes every investment type, entry and return stored in this browser. There is no undo.
+              Deletes every investment type, entry and return stored in this browser. With cloud
+              sync on, the erase is pushed to your other devices too. There is no undo.
             </p>
             <ConfirmButton
               className="btn btn-danger"
