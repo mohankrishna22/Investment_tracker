@@ -165,7 +165,7 @@ export default function VentureDetail({ dark }: { dark: boolean }) {
               </button>
             </div>
             <div className="table-wrap">
-              <table>
+              <table className="stack-table">
                 <thead>
                   <tr>
                     <th>Date</th>
@@ -180,15 +180,23 @@ export default function VentureDetail({ dark }: { dark: boolean }) {
                 <tbody>
                   {investments.map((i) => (
                     <tr key={i.id}>
-                      <td>{formatDate(i.date, data.settings.locale)}</td>
-                      <td>{i.item}</td>
-                      <td>
+                      <td data-label="Date">{formatDate(i.date, data.settings.locale)}</td>
+                      <td data-label="Item" className="table-lead">
+                        {i.item}
+                      </td>
+                      <td data-label="Category">
                         <span className="badge">{i.category}</span>
                       </td>
-                      <td className="muted">{i.paymentMode}</td>
-                      <td className="wrap-cell muted">{i.notes || '—'}</td>
-                      <td className="num">{money(i.amount)}</td>
-                      <td>
+                      <td data-label="Paid by" className="muted">
+                        {i.paymentMode}
+                      </td>
+                      <td data-label="Notes" className={`wrap-cell muted ${i.notes ? '' : 'is-empty'}`}>
+                        {i.notes || '—'}
+                      </td>
+                      <td data-label="Amount" className="num">
+                        {money(i.amount)}
+                      </td>
+                      <td className="row-actions-cell">
                         <div className="row-actions">
                           <button className="btn-ghost btn-sm" onClick={() => setInvestmentModal(i)}>
                             Edit
@@ -201,8 +209,12 @@ export default function VentureDetail({ dark }: { dark: boolean }) {
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={5}>Total invested · {investments.length} entries</td>
-                    <td className="num">{money(stats.invested)}</td>
+                    <td colSpan={5} className="table-lead">
+                      Total invested · {investments.length} entries
+                    </td>
+                    <td data-label="Total" className="num">
+                      {money(stats.invested)}
+                    </td>
                     <td />
                   </tr>
                 </tfoot>
@@ -235,7 +247,7 @@ export default function VentureDetail({ dark }: { dark: boolean }) {
               </button>
             </div>
             <div className="table-wrap">
-              <table>
+              <table className="stack-table">
                 <thead>
                   <tr>
                     <th>Date</th>
@@ -248,13 +260,19 @@ export default function VentureDetail({ dark }: { dark: boolean }) {
                 <tbody>
                   {payouts.map((p) => (
                     <tr key={p.id}>
-                      <td>{formatDate(p.date, data.settings.locale)}</td>
-                      <td>
+                      <td data-label="Date" className="table-lead">
+                        {formatDate(p.date, data.settings.locale)}
+                      </td>
+                      <td data-label="Type">
                         <span className="badge">{p.kind}</span>
                       </td>
-                      <td className="wrap-cell muted">{p.notes || '—'}</td>
-                      <td className="num pos">{money(p.amount)}</td>
-                      <td>
+                      <td data-label="Notes" className={`wrap-cell muted ${p.notes ? '' : 'is-empty'}`}>
+                        {p.notes || '—'}
+                      </td>
+                      <td data-label="Amount" className="num pos">
+                        {money(p.amount)}
+                      </td>
+                      <td className="row-actions-cell">
                         <div className="row-actions">
                           <button className="btn-ghost btn-sm" onClick={() => setPayoutModal(p)}>
                             Edit
@@ -267,8 +285,12 @@ export default function VentureDetail({ dark }: { dark: boolean }) {
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={3}>Total returns · {payouts.length} payouts</td>
-                    <td className="num">{money(stats.returned)}</td>
+                    <td colSpan={3} className="table-lead">
+                      Total returns · {payouts.length} payouts
+                    </td>
+                    <td data-label="Total" className="num">
+                      {money(stats.returned)}
+                    </td>
                     <td />
                   </tr>
                 </tfoot>

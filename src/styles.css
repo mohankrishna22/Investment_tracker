@@ -266,12 +266,167 @@ tr:hover .row-actions { opacity: 1; }
 
 .inline-note { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
 
+/* ---------- phones ---------- */
 @media (max-width: 720px) {
-  .page { padding: 20px 14px 60px; }
-  .topbar { padding: 10px 14px; gap: 10px; }
-  .nav a { padding: 6px 10px; }
-  .kpi .value { font-size: 21px; }
-  .summary-bar { gap: 16px; }
+  body { font-size: 15px; }
+
+  .page {
+    padding: 16px 14px calc(96px + env(safe-area-inset-bottom));
+  }
+
+  /* Header keeps only identity and status; navigation moves to a thumb-reachable
+     bar at the bottom of the screen. */
+  .topbar {
+    padding: 10px 14px calc(10px);
+    padding-top: calc(10px + env(safe-area-inset-top));
+    gap: 8px;
+  }
+  .brand { font-size: 15px; gap: 8px; }
+  .brand-text { display: none; }
+
+  .nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+  }
+  .nav a {
+    text-align: center;
+    padding: 10px 4px;
+    border-radius: 10px;
+    font-size: 13px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Two stat tiles per row reads far better than one tall column. */
+  .grid-kpi { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .kpi { padding: 12px 13px; }
+  .kpi .label { font-size: 10.5px; letter-spacing: 0.04em; }
+  .kpi .value { font-size: 19px; }
+  .kpi .hint { font-size: 11.5px; }
+
+  .grid, .grid-cards, .grid-2, .grid-2-wide { gap: 12px; }
+
+  .page-head { gap: 10px; margin-bottom: 16px; }
+  .page-head h1 { font-size: 22px; }
+  .page-head .spacer { display: none; }
+  /* Actions become a full-width row instead of three stacked buttons. */
+  .page-head > .btn, .page-head > button {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  /* 16px keeps iOS Safari from zooming in when a field takes focus. */
+  input, select, textarea { font-size: 16px; }
+
+  .card-head { flex-wrap: wrap; gap: 8px; padding: 14px 16px; }
+  .card-head h3 { font-size: 14.5px; }
+  .card-pad { padding: 16px; }
+
+  /* Columns that can be inferred from the others make way on a narrow screen. */
+  .hide-sm { display: none; }
+  th, td { padding: 10px 11px; }
+
+  .toolbar { gap: 8px; }
+  .toolbar .search { min-width: 100% !important; flex: 1 1 100%; }
+  .toolbar select { flex: 1 1 45%; min-width: 0; }
+
+  .tabs button { flex: 1; padding: 11px 4px; font-size: 13px; min-height: 44px; white-space: nowrap; }
+
+  .summary-bar {
+    position: static;
+    gap: 14px 20px;
+    padding: 14px 16px;
+  }
+  .summary-bar .v { font-size: 17px; }
+  .summary-bar .spacer { display: none; }
+
+  .modal { max-height: 92vh; border-radius: 16px 16px 0 0; align-self: end; }
+  .modal .body { padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); }
+  .modal-backdrop { padding: 0; place-items: end center; }
+  .form-grid { grid-template-columns: 1fr; }
+  .form-actions > button { flex: 1; justify-content: center; min-height: 44px; }
+
+  /* Touch has no hover, so row controls stay visible and finger-sized. */
+  .row-actions { opacity: 1; }
+  .row-actions button { min-height: 38px; }
+
+  .activity-row { padding: 11px 14px; }
+  .chart-flex { gap: 14px; }
+}
+
+/* Tables marked .stack-table turn into one card per row on a phone. */
+@media (max-width: 720px) {
+  .stack-table thead { display: none; }
+  .stack-table, .stack-table tbody, .stack-table tfoot, .stack-table td {
+    display: block;
+    width: 100%;
+  }
+  /* A column flexbox so the most useful cell can be pulled to the top. */
+  .stack-table tr {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 13px;
+    margin: 0 12px 10px;
+    background: var(--surface);
+  }
+  .stack-table tbody tr:hover { background: var(--surface); }
+  .stack-table td {
+    border: none;
+    padding: 5px 0;
+    white-space: normal;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    text-align: right;
+  }
+  .stack-table td::before {
+    content: attr(data-label);
+    flex: none;
+    text-align: left;
+    font-size: 11.5px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .stack-table td:empty, .stack-table td[data-label='']::before { display: none; }
+  /* An empty notes line is pure noise on a narrow screen. */
+  .stack-table td.is-empty { display: none; }
+  .stack-table td.row-actions-cell { justify-content: flex-end; padding-top: 8px; }
+  .stack-table td.row-actions-cell::before { display: none; }
+  .stack-table tfoot tr {
+    border-color: var(--text);
+    background: var(--surface-2);
+  }
+  .stack-table .table-lead {
+    order: -1;
+    font-size: 15px;
+    font-weight: 650;
+    justify-content: flex-start;
+    text-align: left;
+  }
+  .stack-table .table-lead::before { display: none; }
+}
+
+@media (max-width: 380px) {
+  .grid-kpi { grid-template-columns: 1fr; }
 }
 
 /* ---------- access gate ---------- */
@@ -303,11 +458,6 @@ tr:hover .row-actions { opacity: 1; }
 .lock-input::placeholder { letter-spacing: 0.3em; }
 .lock-error { font-size: 13px; color: var(--neg); min-height: 20px; margin-top: 8px; opacity: 0; }
 .lock-error.visible { opacity: 1; }
-.lock-trust {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13.5px; color: var(--muted); margin: 4px 0 18px;
-}
-.lock-trust input { width: auto; }
 .lock-submit { width: 100%; justify-content: center; padding: 11px; }
 
 @keyframes shake {
@@ -321,3 +471,5 @@ tr:hover .row-actions { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .shake { animation: none; }
 }
+
+.lock-note { font-size: 12.5px; color: var(--muted); margin: 0 0 18px; }

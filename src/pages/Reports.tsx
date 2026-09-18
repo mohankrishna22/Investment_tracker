@@ -136,7 +136,7 @@ export default function Reports() {
                   <th>Month</th>
                   <th className="num">Invested</th>
                   <th className="num">Returned</th>
-                  <th className="num">Net</th>
+                  <th className="num hide-sm">Net</th>
                 </tr>
               </thead>
               <tbody>
@@ -147,7 +147,7 @@ export default function Reports() {
                     <td className={`num ${m.returned ? 'pos' : 'muted'}`}>
                       {m.returned ? money(m.returned) : '—'}
                     </td>
-                    <td className={`num ${m.returned - m.invested >= 0 ? 'pos' : 'neg'}`}>
+                    <td className={`num hide-sm ${m.returned - m.invested >= 0 ? 'pos' : 'neg'}`}>
                       {money(m.returned - m.invested)}
                     </td>
                   </tr>
@@ -165,7 +165,7 @@ export default function Reports() {
                   <td>Total</td>
                   <td className="num">{money(invested)}</td>
                   <td className="num">{money(returned)}</td>
-                  <td className={`num ${returned - invested >= 0 ? 'pos' : 'neg'}`}>
+                  <td className={`num hide-sm ${returned - invested >= 0 ? 'pos' : 'neg'}`}>
                     {money(returned - invested)}
                   </td>
                 </tr>
@@ -230,7 +230,7 @@ export default function Reports() {
           <span className="muted">{ledger.length} entries</span>
         </div>
         <div className="table-wrap">
-          <table>
+          <table className="stack-table">
             <thead>
               <tr>
                 <th>Date</th>
@@ -244,22 +244,36 @@ export default function Reports() {
             <tbody>
               {ledger.map((r) => (
                 <tr key={r.id}>
-                  <td>{formatDate(r.date, data.settings.locale)}</td>
-                  <td>{r.venture}</td>
-                  <td className="wrap-cell">{r.detail}</td>
-                  <td>
+                  <td data-label="Date">{formatDate(r.date, data.settings.locale)}</td>
+                  <td data-label="Investment type" className="table-lead">
+                    {r.venture}
+                  </td>
+                  <td data-label="Detail" className="wrap-cell">
+                    {r.detail}
+                  </td>
+                  <td data-label="Kind">
                     <span className="badge">{r.kind}</span>
                   </td>
-                  <td className={`num ${r.out ? '' : 'muted'}`}>{r.out ? money(r.out) : '—'}</td>
-                  <td className={`num ${r.in ? 'pos' : 'muted'}`}>{r.in ? money(r.in) : '—'}</td>
+                  <td data-label="Out" className={`num ${r.out ? '' : 'muted is-empty'}`}>
+                    {r.out ? money(r.out) : '—'}
+                  </td>
+                  <td data-label="In" className={`num ${r.in ? 'pos' : 'muted is-empty'}`}>
+                    {r.in ? money(r.in) : '—'}
+                  </td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={4}>Period total</td>
-                <td className="num">{money(invested)}</td>
-                <td className="num">{money(returned)}</td>
+                <td colSpan={4} className="table-lead">
+                  Period total
+                </td>
+                <td data-label="Out" className="num">
+                  {money(invested)}
+                </td>
+                <td data-label="In" className="num">
+                  {money(returned)}
+                </td>
               </tr>
             </tfoot>
           </table>

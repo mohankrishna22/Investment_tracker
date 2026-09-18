@@ -41,10 +41,13 @@ exportable to CSV.
 ## Access code
 
 The site asks for a four-digit code before it shows anything. The code is set in
-`src/lib/lock.ts` as a SHA-256 digest — change the digest there to change the code.
-"Stay unlocked on this device" remembers the unlock in `localStorage`; leaving it
-unticked means the code is asked for again next time the tab is closed. The **Lock**
-button in the header clears it on demand.
+`src/lib/lock.ts` as a SHA-256 digest — change the digest there to change the code
+(`node -e "console.log(require('crypto').createHash('sha256').update('1234').digest('hex'))"`).
+
+The unlock lasts **30 minutes of inactivity**. Any tap, key or scroll pushes the
+deadline out; leave the app alone for half an hour and it locks itself, whether the
+tab was closed or left sitting open. The **Lock** button in the header locks it
+immediately.
 
 Be clear-eyed about what this is: the app is a static bundle, so the check runs in
 the browser and anyone who opens devtools can step past it. Hashing the code keeps
@@ -73,6 +76,12 @@ Each device pulls when it starts, when you switch back to its tab, and once a mi
 If the same row was edited on two devices since their last sync, the most recent edit
 wins and the app says so rather than merging silently — so a backup is still worth
 taking before big changes.
+
+**Seeing the raw data.** In Supabase, **Table Editor → `snapshots`** shows one row per
+sync ID — the whole portfolio is a single JSON document in the `data` column, not a
+table per entity, so the editor is not much to look at. [`supabase/queries.sql`](supabase/queries.sql)
+has ready-made SQL that unpacks it into readable tables of ventures, investments,
+returns and per-venture totals. Paste one into the SQL editor and run it.
 
 **How private it is.** The anon key ships inside the app and is meant to be public, so
 it is not what protects you. The `snapshots` table has row-level security with no

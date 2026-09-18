@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { HashRouter, Link, Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import { StoreProvider, useStore } from './lib/store'
 import { SyncProvider, useSync } from './lib/syncEngine'
@@ -10,6 +10,7 @@ import Settings from './pages/Settings'
 import Pair from './pages/Pair'
 import { currencySymbol } from './lib/format'
 import { forgetUnlock, isUnlocked } from './lib/lock'
+import { useAutoLock } from './lib/useAutoLock'
 import Lock from './components/Lock'
 
 /** A quiet indicator; the detail lives in Settings. */
@@ -37,7 +38,7 @@ function Shell({ onLock, dark }: { onLock: () => void; dark: boolean }) {
       <header className="topbar">
         <Link to="/" className="brand">
           <span className="brand-mark">{currencySymbol(data.settings)}</span>
-          Investment Tracker
+          <span className="brand-text">Investment Tracker</span>
         </Link>
         <nav className="nav">
           <NavLink to="/" end>
@@ -58,10 +59,7 @@ function Shell({ onLock, dark }: { onLock: () => void; dark: boolean }) {
         <button
           className="btn-ghost btn-sm"
           title="Lock and ask for the access code again"
-          onClick={() => {
-            forgetUnlock()
-            onLock()
-          }}
+          onClick={onLock}
         >
           Lock
         </button>
@@ -83,14 +81,37 @@ function Gate() {
   const { data } = useStore()
   const dark = useTheme(data.settings.theme)
   const [unlocked, setUnlocked] = useState(isUnlocked)
+  const [expired, setExpired] = useState(false)
 
-  if (!unlocked) return <Lock onUnlock={() => setUnlocked(true)} />
+  const lock = useCallback(() => {
+    forgetUnlock()
+    setUnlocked(false)
+  }, [])
+
+  useAutoLock(
+    unlocked,
+    useCallback(() => {
+      lock()
+      setExpired(true)
+    }, [lock]),
+  )
+
+  if (!unlocked)
+    return (
+      <Lock
+        expired={expired}
+        onUnlock={() => {
+          setExpired(false)
+          setUnlocked(true)
+        }}
+      />
+    )
 
   return (
     // Hash routing keeps deep links working on static hosts like GitHub Pages.
     <HashRouter>
       <SyncProvider>
-        <Shell dark={dark} onLock={() => setUnlocked(false)} />
+        <Shell dark={dark} onLock={lock} />
       </SyncProvider>
     </HashRouter>
   )

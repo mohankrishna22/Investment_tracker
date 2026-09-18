@@ -1,9 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { checkCode, rememberUnlock } from '../lib/lock'
+import { checkCode, touchUnlock } from '../lib/lock'
 
-export default function Lock({ onUnlock }: { onUnlock: () => void }) {
+export default function Lock({ onUnlock, expired }: { onUnlock: () => void; expired?: boolean }) {
   const [code, setCode] = useState('')
-  const [trust, setTrust] = useState(true)
   const [error, setError] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -17,7 +16,7 @@ export default function Lock({ onUnlock }: { onUnlock: () => void }) {
       setCode('')
       return
     }
-    rememberUnlock(trust)
+    touchUnlock()
     onUnlock()
   }
 
@@ -26,7 +25,7 @@ export default function Lock({ onUnlock }: { onUnlock: () => void }) {
       <form className="card lock-card" onSubmit={submit}>
         <div className="brand-mark lock-mark">🔒</div>
         <h1>Investment Tracker</h1>
-        <p className="muted">Enter your access code to continue.</p>
+        <p className="muted">{expired ? 'Locked after 30 idle minutes.' : 'Enter your access code to continue.'}</p>
         <input
           className={`lock-input ${error ? 'shake' : ''}`}
           value={code}
@@ -45,10 +44,7 @@ export default function Lock({ onUnlock }: { onUnlock: () => void }) {
         <div aria-live="polite" className={`lock-error ${error ? 'visible' : ''}`}>
           {error ? 'That code is not right.' : ' '}
         </div>
-        <label className="lock-trust">
-          <input type="checkbox" checked={trust} onChange={(e) => setTrust(e.target.checked)} />
-          <span>Stay unlocked on this device</span>
-        </label>
+        <p className="lock-note">Locks itself again after 30 minutes of inactivity.</p>
         <button type="submit" className="btn-primary lock-submit" disabled={!code || busy}>
           Unlock
         </button>
