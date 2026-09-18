@@ -38,6 +38,19 @@ exportable to CSV.
 - **Light and dark themes**, currency and locale settings, and a layout that works
   on a phone.
 
+## Access code
+
+The site asks for a four-digit code before it shows anything. The code is set in
+`src/lib/lock.ts` as a SHA-256 digest — change the digest there to change the code.
+"Stay unlocked on this device" remembers the unlock in `localStorage`; leaving it
+unticked means the code is asked for again next time the tab is closed. The **Lock**
+button in the header clears it on demand.
+
+Be clear-eyed about what this is: the app is a static bundle, so the check runs in
+the browser and anyone who opens devtools can step past it. Hashing the code keeps
+it from being read straight out of the source, but a four-digit code brute-forces
+instantly. Treat it as a curtain that keeps a casual visitor out, not as security.
+
 ## Where the data lives
 
 In `localStorage`, in the browser you use it in. That means:
