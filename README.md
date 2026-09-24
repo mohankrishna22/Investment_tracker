@@ -98,8 +98,19 @@ taking before big changes.
 
 **Keeping the project awake.** Supabase pauses a free-tier project after about a week
 with no activity. Paused is not deleted — the data stays on disk and one click in the
-dashboard brings it back — but sync stops until you do. A daily ping avoids it
-entirely.
+dashboard brings it back — but sync stops until you do. Two independent daily pings
+avoid it, and they cover different failure modes:
+
+| | Covers | Fails when |
+| --- | --- | --- |
+| **Local scheduler** (launchd, daily 12:30) | GitHub disabling the workflow | the laptop is off or away |
+| **GitHub Action** (daily 06:40 UTC) | the laptop being away for weeks | 60 days pass with no push to the repo |
+
+Either alone is enough; together they only both lapse if you are away for weeks *and*
+have not pushed to the repository in two months. GitHub emails before it disables a
+schedule, and re-enabling is one click.
+
+### Local scheduler
 
 On a Mac, install the scheduled ping once:
 
@@ -131,10 +142,26 @@ The ping reads a deliberately non-existent sync ID, so it writes nothing and the
 sync ID is never needed here or stored on disk. Credentials live outside the
 repository and are never committed.
 
-It only works while the machine is on, so the ping stops if the Mac is away for a
-week or more. That is a week of grace before a pause, and a pause is recoverable — but
-if you are going away for longer, open the app on your phone once, or restore the
-project from the Supabase dashboard when you are back.
+It only works while the machine is on, which is exactly what the GitHub fallback is
+for.
+
+### GitHub Action fallback
+
+`.github/workflows/keepalive.yml` does the same ping from GitHub's runners. Switch it
+on by adding two repository secrets under **Settings → Secrets and variables →
+Actions**:
+
+| Secret | Value |
+| --- | --- |
+| `SUPABASE_URL` | the same Project URL you pasted into the app |
+| `SUPABASE_ANON_KEY` | the same anon public key |
+
+Without them the job reports that there is nothing to ping and exits cleanly, so it
+never shows up as a red failure. With them it fails loudly if the project stops
+answering, which reaches you as an email rather than as silence.
+
+Its one weakness is GitHub's rule that a repository with no pushes for 60 days has its
+scheduled workflows disabled. That is why the local scheduler exists alongside it.
 
 **Seeing the raw data.** In Supabase, **Table Editor → `snapshots`** shows one row per
 sync ID — the whole portfolio is a single JSON document in the `data` column, not a
