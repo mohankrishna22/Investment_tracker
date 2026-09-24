@@ -98,23 +98,43 @@ taking before big changes.
 
 **Keeping the project awake.** Supabase pauses a free-tier project after about a week
 with no activity. Paused is not deleted — the data stays on disk and one click in the
-dashboard brings it back — but sync stops until you do. `.github/workflows/keepalive.yml`
-pings the project once a day so it never gets there. To switch it on, add two
-repository secrets under **Settings → Secrets and variables → Actions**:
+dashboard brings it back — but sync stops until you do. A daily ping avoids it
+entirely.
 
-| Secret | Value |
+On a Mac, install the scheduled ping once:
+
+```bash
+bash scripts/install-keepalive-macos.sh
+```
+
+It asks for the Project URL and anon key, saves them to
+`~/.config/investment-tracker/keepalive.env` with `600` permissions, tests the ping,
+and only schedules it if the test passes. From then on a launchd agent runs it daily
+at 12:30 and at login. `launchd` is used rather than `cron` because it catches up on a
+run the Mac slept through; `cron` silently skips it. Set `KEEPALIVE_HOUR` and
+`KEEPALIVE_MINUTE` to move the time.
+
+| | |
 | --- | --- |
-| `SUPABASE_URL` | the same Project URL you pasted into the app |
-| `SUPABASE_ANON_KEY` | the same anon public key |
+| Log | `~/Library/Logs/investment-tracker-keepalive.log` |
+| Check it is loaded | `launchctl list \| grep investment-tracker` |
+| Run it right now | `launchctl kickstart gui/$(id -u)/local.investment-tracker.keepalive` |
+| Remove it | `bash scripts/uninstall-keepalive-macos.sh` |
 
-The ping reads a deliberately non-existent sync ID, so it writes nothing and your real
-sync ID never goes near GitHub. Without the secrets the job just reports that there is
-nothing to ping. It fails loudly if the project stops answering, so a dead or paused
-project reaches you as a failed-workflow email rather than silence.
+On Linux, `scripts/keepalive.sh` works the same way from cron:
 
-Two things that can stop the schedule: GitHub disables cron workflows in a repository
-with no pushes for 60 days (it emails first), and scheduled runs can be delayed under
-load. Neither is fatal here — a missed day is fine, a missed fortnight is not.
+```
+30 12 * * * /path/to/scripts/keepalive.sh >> ~/keepalive.log 2>&1
+```
+
+The ping reads a deliberately non-existent sync ID, so it writes nothing and the real
+sync ID is never needed here or stored on disk. Credentials live outside the
+repository and are never committed.
+
+It only works while the machine is on, so the ping stops if the Mac is away for a
+week or more. That is a week of grace before a pause, and a pause is recoverable — but
+if you are going away for longer, open the app on your phone once, or restore the
+project from the Supabase dashboard when you are back.
 
 **Seeing the raw data.** In Supabase, **Table Editor → `snapshots`** shows one row per
 sync ID — the whole portfolio is a single JSON document in the `data` column, not a
