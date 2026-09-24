@@ -19,18 +19,23 @@ interest, a sale. A breakdown tab charts spend by category, month-by-month flow,
 the biggest line items and returns by type. Total invested, returns received,
 current value and net sit at the bottom.
 
-**Lending** is a second dashboard for money lent to friends and family, kept separate
-from the investment side. Each person shows what they were lent, what has come back,
-what is still owed, and how far past the agreed date they are. Opening a person lists
-every loan — amount, date, what it was for, the date it was promised back — with a
-running total, plus a tab for repayments received.
+**Loans** is a second dashboard for informal debt in both directions — money you lent
+to friends and family, and money you borrowed from them — kept separate from the
+investment side. The headline figures are what you are owed, what you owe, and the net
+position between them.
 
-Repayments are not tagged to a particular loan, because asking someone which of four
-loans their transfer covers is friction nobody wants. Instead the money is applied to
-the **oldest unsettled loan first**, so each loan shows as settled, part paid or
-outstanding without any bookkeeping on your part. A "worth a nudge" list on the
-dashboard collects everything overdue or falling due in the next 30 days. A loan can be
-written off, which keeps the record without it counting against what you are owed.
+Each person shows both sides at once, because the same person can be on both: what
+they owe you, what you owe them, and the net. Opening a person gives a **Lent out** tab
+and a **Borrowed** tab, each with its own loans (amount, date, purpose, the date it was
+promised back) and its own repayments, with running totals.
+
+Repayments are not tagged to a particular loan, because working out which of four loans
+a transfer covers is friction nobody wants. Instead the money is applied to the
+**oldest unsettled loan on that side first**, so each loan shows as settled, part paid
+or outstanding with no bookkeeping. A "worth a nudge" list collects everything overdue
+or falling due in the next 30 days, in both directions — who to chase, and who to pay.
+A loan can be written off (or forgiven, borrowing the other way), which keeps the
+record without it counting towards a balance.
 
 **Reports** gives a month-by-month cash-flow table, the spend mix by expense category
 and by sector, and a full ledger of every transaction — filterable by year and

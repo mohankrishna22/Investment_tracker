@@ -63,8 +63,13 @@ export function normalise(raw: unknown): AppData {
     payouts: Array.isArray(input.payouts) ? input.payouts : [],
     // Absent in snapshots written before lending existed.
     people: Array.isArray(input.people) ? input.people : [],
-    loans: Array.isArray(input.loans) ? input.loans : [],
-    repayments: Array.isArray(input.repayments) ? input.repayments : [],
+    // Direction arrived after lending did; anything without one was money lent out.
+    loans: Array.isArray(input.loans)
+      ? input.loans.map((l) => ({ ...l, direction: l.direction ?? 'out' }))
+      : [],
+    repayments: Array.isArray(input.repayments)
+      ? input.repayments.map((r) => ({ ...r, direction: r.direction ?? 'out' }))
+      : [],
     settings: { ...base.settings, ...(input.settings ?? {}) },
   }
 }

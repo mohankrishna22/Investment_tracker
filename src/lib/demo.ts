@@ -118,12 +118,16 @@ export function demoData(): AppData {
   const [ravi, anita, deepak] = people
 
   const loans: Loan[] = [
-    [ravi, iso(year - 1, 6, 12), 50000, 'Medical', iso(year - 1, 12, 12), ''],
-    [ravi, iso(year, 2, 2), 20000, 'Personal', iso(year, 8, 2), 'For the house move'],
-    [anita, iso(year, 5, 20), 75000, 'Education', iso(year + 1, 5, 20), 'Semester fees'],
-    [deepak, iso(year - 2, 9, 4), 15000, 'Emergency', iso(year - 2, 12, 4), ''],
-  ].map(([p, date, amount, purpose, dueDate, notes]) => ({
+    ['out', ravi, iso(year - 1, 6, 12), 50000, 'Medical', iso(year - 1, 12, 12), ''],
+    ['out', ravi, iso(year, 2, 2), 20000, 'Personal', iso(year, 8, 2), 'For the house move'],
+    ['out', anita, iso(year, 5, 20), 75000, 'Education', iso(year + 1, 5, 20), 'Semester fees'],
+    ['out', deepak, iso(year - 2, 9, 4), 15000, 'Emergency', iso(year - 2, 12, 4), ''],
+    // Borrowed the other way, to show a person you owe as well as one who owes you.
+    ['in', anita, iso(year, 3, 10), 120000, 'Business', iso(year + 1, 3, 10), 'Bridge for the fleet deposit'],
+    ['in', deepak, iso(year - 1, 8, 1), 30000, 'Personal', iso(year, 2, 1), ''],
+  ].map(([direction, p, date, amount, purpose, dueDate, notes]) => ({
     id: uid(),
+    direction: direction as Loan['direction'],
     personId: (p as Person).id,
     date: date as string,
     amount: amount as number,
@@ -133,11 +137,14 @@ export function demoData(): AppData {
   }))
 
   const repayments: Repayment[] = [
-    [ravi, iso(year - 1, 9, 1), 20000, 'Part payment'],
-    [ravi, iso(year, 1, 15), 15000, ''],
-    [deepak, iso(year - 2, 11, 30), 15000, 'Settled in full'],
-  ].map(([p, date, amount, notes]) => ({
+    ['out', ravi, iso(year - 1, 9, 1), 20000, 'Part payment'],
+    ['out', ravi, iso(year, 1, 15), 15000, ''],
+    ['out', deepak, iso(year - 2, 11, 30), 15000, 'Settled in full'],
+    ['in', anita, iso(year, 7, 5), 40000, 'First instalment'],
+    ['in', deepak, iso(year, 1, 20), 30000, 'Cleared it'],
+  ].map(([direction, p, date, amount, notes]) => ({
     id: uid(),
+    direction: direction as Repayment['direction'],
     personId: (p as Person).id,
     date: date as string,
     amount: amount as number,

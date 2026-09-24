@@ -479,3 +479,36 @@ tr:hover .row-actions { opacity: 1; }
 }
 
 .lock-note { font-size: 12.5px; color: var(--muted); margin: 0 0 18px; }
+
+/* ---------- segmented control ---------- */
+.field-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.segmented button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 9px;
+  justify-content: center;
+  min-height: 38px;
+  font-size: 13.5px;
+}
+.segmented button:hover { background: color-mix(in srgb, var(--surface) 60%, transparent); }
+.segmented button.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(18, 28, 53, 0.08);
+}

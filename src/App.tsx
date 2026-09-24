@@ -46,7 +46,7 @@ function Shell({ onLock, dark }: { onLock: () => void; dark: boolean }) {
           <NavLink to="/" end>
             Investments
           </NavLink>
-          <NavLink to="/lending">Lending</NavLink>
+          <NavLink to="/lending">Loans</NavLink>
           <NavLink to="/reports">Reports</NavLink>
           <NavLink to="/settings">Settings</NavLink>
         </nav>

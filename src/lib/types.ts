@@ -42,7 +42,14 @@ export interface Payout {
 
 export type LoanStatus = 'open' | 'settled' | 'written-off'
 
-/** Someone money has been lent to. */
+/**
+ * Which way the original money went.
+ * 'out' — you lent it and expect it back.
+ * 'in'  — you borrowed it and owe it back.
+ */
+export type LoanDirection = 'out' | 'in'
+
+/** Someone you have lent money to, borrowed from, or both. */
 export interface Person {
   id: string
   name: string
@@ -56,6 +63,7 @@ export interface Person {
 export interface Loan {
   id: string
   personId: string
+  direction: LoanDirection
   date: string // ISO yyyy-mm-dd
   amount: number
   /** What it was for, e.g. "Bike repair". */
@@ -70,6 +78,8 @@ export interface Loan {
 export interface Repayment {
   id: string
   personId: string
+  /** Settles loans of the same direction: 'out' money returning, 'in' money repaid. */
+  direction: LoanDirection
   date: string
   amount: number
   notes: string

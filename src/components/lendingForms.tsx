@@ -1,7 +1,14 @@
 import { useState, type FormEvent } from 'react'
 import { Field, Modal } from './ui'
 import { today, useStore } from '../lib/store'
-import { LOAN_PURPOSES, PALETTE, type Loan, type Person, type Repayment } from '../lib/types'
+import {
+  LOAN_PURPOSES,
+  PALETTE,
+  type Loan,
+  type LoanDirection,
+  type Person,
+  type Repayment,
+} from '../lib/types'
 
 const num = (v: string) => {
   const n = Number(v)
@@ -109,14 +116,17 @@ export function LoanForm({
   personId,
   loan,
   onClose,
+  defaultDirection = 'out',
 }: {
   personId: string
   loan?: Loan
   onClose: () => void
+  defaultDirection?: LoanDirection
 }) {
   const { addLoan, updateLoan, data } = useStore()
   const [form, setForm] = useState({
     personId: loan?.personId ?? personId,
+    direction: loan?.direction ?? defaultDirection,
     date: loan?.date ?? today(),
     amount: loan ? String(loan.amount) : '',
     purpose: loan?.purpose ?? 'Personal',
@@ -125,11 +135,13 @@ export function LoanForm({
     writtenOff: loan?.writtenOff ?? false,
   })
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }))
+  const lending = form.direction === 'out'
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
     const payload = {
       personId: form.personId,
+      direction: form.direction,
       date: form.date,
       amount: num(form.amount),
       purpose: form.purpose.trim() || 'Personal',
@@ -144,9 +156,31 @@ export function LoanForm({
   }
 
   return (
-    <Modal title={loan ? 'Edit loan' : 'Record money lent'} onClose={onClose}>
+    <Modal
+      title={loan ? 'Edit loan' : lending ? 'Record money you lent' : 'Record money you borrowed'}
+      onClose={onClose}
+    >
       <form onSubmit={submit}>
         <div className="form-grid">
+          <div className="field-wide">
+            <span className="field-label">Which way did the money go?</span>
+            <div className="segmented">
+              <button
+                type="button"
+                className={lending ? 'active' : ''}
+                onClick={() => set({ direction: 'out' })}
+              >
+                I lent it out
+              </button>
+              <button
+                type="button"
+                className={!lending ? 'active' : ''}
+                onClick={() => set({ direction: 'in' })}
+              >
+                I borrowed it
+              </button>
+            </div>
+          </div>
           <Field label="Person">
             <select value={form.personId} onChange={(e) => set({ personId: e.target.value })}>
               {data.people.map((p) => (
@@ -156,7 +190,7 @@ export function LoanForm({
               ))}
             </select>
           </Field>
-          <Field label="Date given">
+          <Field label={lending ? 'Date given' : 'Date received'}>
             <input
               type="date"
               required
@@ -176,7 +210,7 @@ export function LoanForm({
               onChange={(e) => set({ amount: e.target.value })}
             />
           </Field>
-          <Field label="Expected back by (optional)">
+          <Field label={lending ? 'Expected back by (optional)' : 'Promised to repay by (optional)'}>
             <input
               type="date"
               value={form.dueDate}
@@ -209,7 +243,7 @@ export function LoanForm({
               onChange={(e) => set({ writtenOff: e.target.checked })}
             />
             <span>
-              Written off — stop counting this as owed
+              {lending ? 'Written off — stop counting this as owed to you' : 'Forgiven — stop counting this as owed by you'}
               <span className="inline-note" style={{ marginTop: 2 }}>
                 Keeps the record without it weighing on the outstanding total.
               </span>
@@ -221,7 +255,7 @@ export function LoanForm({
             Cancel
           </button>
           <button type="submit" className="btn-primary">
-            {loan ? 'Save changes' : 'Add loan'}
+            {loan ? 'Save changes' : lending ? 'Add loan' : 'Add borrowing'}
           </button>
         </div>
       </form>
@@ -234,26 +268,31 @@ export function RepaymentForm({
   repayment,
   onClose,
   suggested,
+  defaultDirection = 'out',
 }: {
   personId: string
   repayment?: Repayment
   onClose: () => void
   /** Pre-fills with what is still owed, which is usually the right answer. */
   suggested?: number
+  defaultDirection?: LoanDirection
 }) {
   const { addRepayment, updateRepayment, data } = useStore()
   const [form, setForm] = useState({
     personId: repayment?.personId ?? personId,
+    direction: repayment?.direction ?? defaultDirection,
     date: repayment?.date ?? today(),
     amount: repayment ? String(repayment.amount) : '',
     notes: repayment?.notes ?? '',
   })
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }))
+  const incoming = form.direction === 'out'
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
     const payload = {
       personId: form.personId,
+      direction: form.direction,
       date: form.date,
       amount: num(form.amount),
       notes: form.notes.trim(),
@@ -265,9 +304,33 @@ export function RepaymentForm({
   }
 
   return (
-    <Modal title={repayment ? 'Edit repayment' : 'Record a repayment'} onClose={onClose}>
+    <Modal
+      title={
+        repayment ? 'Edit repayment' : incoming ? 'They paid you back' : 'You paid them back'
+      }
+      onClose={onClose}
+    >
       <form onSubmit={submit}>
         <div className="form-grid">
+          <div className="field-wide">
+            <span className="field-label">Which way did the money go?</span>
+            <div className="segmented">
+              <button
+                type="button"
+                className={incoming ? 'active' : ''}
+                onClick={() => set({ direction: 'out' })}
+              >
+                They paid me
+              </button>
+              <button
+                type="button"
+                className={!incoming ? 'active' : ''}
+                onClick={() => set({ direction: 'in' })}
+              >
+                I paid them
+              </button>
+            </div>
+          </div>
           <Field label="Person">
             <select value={form.personId} onChange={(e) => set({ personId: e.target.value })}>
               {data.people.map((p) => (
@@ -277,7 +340,7 @@ export function RepaymentForm({
               ))}
             </select>
           </Field>
-          <Field label="Date received">
+          <Field label={incoming ? 'Date received' : 'Date paid'}>
             <input
               type="date"
               required
@@ -303,7 +366,7 @@ export function RepaymentForm({
                 style={{ marginTop: 8 }}
                 onClick={() => set({ amount: String(suggested) })}
               >
-                Paid in full ({Math.round(suggested).toLocaleString()})
+                Settle in full ({Math.round(suggested).toLocaleString()})
               </button>
             )}
           </Field>
@@ -312,7 +375,8 @@ export function RepaymentForm({
           </Field>
         </div>
         <div className="inline-note">
-          Repayments go against the oldest unsettled loan first.
+          This goes against the oldest unsettled {incoming ? 'loan you gave' : 'amount you owe'}{' '}
+          first.
         </div>
         <div className="form-actions">
           <button type="button" onClick={onClose}>
