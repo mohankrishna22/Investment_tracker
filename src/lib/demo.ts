@@ -1,4 +1,4 @@
-import type { AppData, Investment, Payout, Venture } from './types'
+import type { AppData, Investment, Loan, Payout, Person, Repayment, Venture } from './types'
 import { emptyData, uid } from './store'
 
 const iso = (y: number, m: number, d: number) =>
@@ -88,5 +88,61 @@ export function demoData(): AppData {
     notes: notes as string,
   }))
 
-  return { ...base, ventures, investments, payouts }
+  const people: Person[] = [
+    {
+      id: uid(),
+      name: 'Ravi',
+      contact: 'College friend',
+      notes: 'Always pays back, just slowly.',
+      color: '#4a3aa7',
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: uid(),
+      name: 'Anita',
+      contact: 'Cousin',
+      notes: '',
+      color: '#e87ba4',
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: uid(),
+      name: 'Deepak',
+      contact: 'Neighbour',
+      notes: 'Settled up in full.',
+      color: '#eb6834',
+      createdAt: new Date().toISOString(),
+    },
+  ]
+
+  const [ravi, anita, deepak] = people
+
+  const loans: Loan[] = [
+    [ravi, iso(year - 1, 6, 12), 50000, 'Medical', iso(year - 1, 12, 12), ''],
+    [ravi, iso(year, 2, 2), 20000, 'Personal', iso(year, 8, 2), 'For the house move'],
+    [anita, iso(year, 5, 20), 75000, 'Education', iso(year + 1, 5, 20), 'Semester fees'],
+    [deepak, iso(year - 2, 9, 4), 15000, 'Emergency', iso(year - 2, 12, 4), ''],
+  ].map(([p, date, amount, purpose, dueDate, notes]) => ({
+    id: uid(),
+    personId: (p as Person).id,
+    date: date as string,
+    amount: amount as number,
+    purpose: purpose as string,
+    dueDate: dueDate as string,
+    notes: notes as string,
+  }))
+
+  const repayments: Repayment[] = [
+    [ravi, iso(year - 1, 9, 1), 20000, 'Part payment'],
+    [ravi, iso(year, 1, 15), 15000, ''],
+    [deepak, iso(year - 2, 11, 30), 15000, 'Settled in full'],
+  ].map(([p, date, amount, notes]) => ({
+    id: uid(),
+    personId: (p as Person).id,
+    date: date as string,
+    amount: amount as number,
+    notes: notes as string,
+  }))
+
+  return { ...base, ventures, investments, payouts, people, loans, repayments }
 }

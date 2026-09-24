@@ -19,6 +19,19 @@ interest, a sale. A breakdown tab charts spend by category, month-by-month flow,
 the biggest line items and returns by type. Total invested, returns received,
 current value and net sit at the bottom.
 
+**Lending** is a second dashboard for money lent to friends and family, kept separate
+from the investment side. Each person shows what they were lent, what has come back,
+what is still owed, and how far past the agreed date they are. Opening a person lists
+every loan — amount, date, what it was for, the date it was promised back — with a
+running total, plus a tab for repayments received.
+
+Repayments are not tagged to a particular loan, because asking someone which of four
+loans their transfer covers is friction nobody wants. Instead the money is applied to
+the **oldest unsettled loan first**, so each loan shows as settled, part paid or
+outstanding without any bookkeeping on your part. A "worth a nudge" list on the
+dashboard collects everything overdue or falling due in the next 30 days. A loan can be
+written off, which keeps the record without it counting against what you are owed.
+
 **Reports** gives a month-by-month cash-flow table, the spend mix by expense category
 and by sector, and a full ledger of every transaction — filterable by year and
 exportable to CSV.
@@ -34,7 +47,8 @@ exportable to CSV.
 - **Search and sort** by name, category, amount invested, returns, ROI or recency.
 - **CSV export** for investments, returns and a portfolio summary.
 - **JSON backup and restore**, so data survives a cleared browser or a new machine.
-- **Sample portfolio** to explore the app before entering anything real.
+- **Sample portfolio** — three ventures and three borrowers with real history, to
+  explore the app before entering anything of your own.
 - **Light and dark themes**, currency and locale settings, and a layout that works
   on a phone.
 

@@ -8,6 +8,8 @@ import VentureDetail from './pages/VentureDetail'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import Pair from './pages/Pair'
+import Lending from './pages/Lending'
+import PersonDetail from './pages/PersonDetail'
 import { currencySymbol } from './lib/format'
 import { forgetUnlock, isUnlocked } from './lib/lock'
 import { useAutoLock } from './lib/useAutoLock'
@@ -42,8 +44,9 @@ function Shell({ onLock, dark }: { onLock: () => void; dark: boolean }) {
         </Link>
         <nav className="nav">
           <NavLink to="/" end>
-            Home
+            Investments
           </NavLink>
+          <NavLink to="/lending">Lending</NavLink>
           <NavLink to="/reports">Reports</NavLink>
           <NavLink to="/settings">Settings</NavLink>
         </nav>
@@ -67,6 +70,8 @@ function Shell({ onLock, dark }: { onLock: () => void; dark: boolean }) {
       <Routes>
         <Route path="/" element={<Dashboard dark={dark} />} />
         <Route path="/venture/:id" element={<VentureDetail dark={dark} />} />
+        <Route path="/lending" element={<Lending dark={dark} />} />
+        <Route path="/lending/:id" element={<PersonDetail dark={dark} />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/pair/:payload" element={<Pair />} />

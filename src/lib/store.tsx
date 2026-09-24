@@ -7,7 +7,16 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { AppData, Investment, Payout, Settings, Venture } from './types'
+import type {
+  AppData,
+  Investment,
+  Loan,
+  Payout,
+  Person,
+  Repayment,
+  Settings,
+  Venture,
+} from './types'
 import { nextPaletteColor } from './types'
 
 const STORAGE_KEY = 'investment-tracker/v1'
@@ -25,6 +34,9 @@ export const emptyData = (): AppData => ({
   ventures: [],
   investments: [],
   payouts: [],
+  people: [],
+  loans: [],
+  repayments: [],
   settings: {
     currency: 'INR',
     locale: 'en-IN',
@@ -49,6 +61,10 @@ export function normalise(raw: unknown): AppData {
     ventures: Array.isArray(input.ventures) ? input.ventures : [],
     investments: Array.isArray(input.investments) ? input.investments : [],
     payouts: Array.isArray(input.payouts) ? input.payouts : [],
+    // Absent in snapshots written before lending existed.
+    people: Array.isArray(input.people) ? input.people : [],
+    loans: Array.isArray(input.loans) ? input.loans : [],
+    repayments: Array.isArray(input.repayments) ? input.repayments : [],
     settings: { ...base.settings, ...(input.settings ?? {}) },
   }
 }
@@ -73,6 +89,15 @@ interface Store {
   addPayout: (p: Omit<Payout, 'id'>) => void
   updatePayout: (id: string, patch: Partial<Payout>) => void
   deletePayout: (id: string) => void
+  addPerson: (p: Omit<Person, 'id' | 'createdAt' | 'color'> & { color?: string }) => Person
+  updatePerson: (id: string, patch: Partial<Person>) => void
+  deletePerson: (id: string) => void
+  addLoan: (l: Omit<Loan, 'id'>) => void
+  updateLoan: (id: string, patch: Partial<Loan>) => void
+  deleteLoan: (id: string) => void
+  addRepayment: (r: Omit<Repayment, 'id'>) => void
+  updateRepayment: (id: string, patch: Partial<Repayment>) => void
+  deleteRepayment: (id: string) => void
   updateSettings: (patch: Partial<Settings>) => void
   replaceAll: (data: AppData, options?: { keepTimestamp?: boolean }) => void
   resetAll: () => void
@@ -171,6 +196,63 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     mutate((d) => ({ ...d, payouts: d.payouts.filter((p) => p.id !== id) }))
   }, [mutate])
 
+  const addPerson = useCallback<Store['addPerson']>(
+    (p) => {
+      const person: Person = {
+        ...p,
+        id: uid(),
+        color: p.color || nextPaletteColor(data.people.map((x) => x.color)),
+        createdAt: new Date().toISOString(),
+      }
+      mutate((d) => ({ ...d, people: [...d.people, person] }))
+      return person
+    },
+    [data.people, mutate],
+  )
+
+  const updatePerson = useCallback<Store['updatePerson']>((id, patch) => {
+    mutate((d) => ({
+      ...d,
+      people: d.people.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+    }))
+  }, [mutate])
+
+  const deletePerson = useCallback<Store['deletePerson']>((id) => {
+    mutate((d) => ({
+      ...d,
+      people: d.people.filter((p) => p.id !== id),
+      loans: d.loans.filter((l) => l.personId !== id),
+      repayments: d.repayments.filter((r) => r.personId !== id),
+    }))
+  }, [mutate])
+
+  const addLoan = useCallback<Store['addLoan']>((l) => {
+    mutate((d) => ({ ...d, loans: [...d.loans, { ...l, id: uid() }] }))
+  }, [mutate])
+
+  const updateLoan = useCallback<Store['updateLoan']>((id, patch) => {
+    mutate((d) => ({ ...d, loans: d.loans.map((l) => (l.id === id ? { ...l, ...patch } : l)) }))
+  }, [mutate])
+
+  const deleteLoan = useCallback<Store['deleteLoan']>((id) => {
+    mutate((d) => ({ ...d, loans: d.loans.filter((l) => l.id !== id) }))
+  }, [mutate])
+
+  const addRepayment = useCallback<Store['addRepayment']>((r) => {
+    mutate((d) => ({ ...d, repayments: [...d.repayments, { ...r, id: uid() }] }))
+  }, [mutate])
+
+  const updateRepayment = useCallback<Store['updateRepayment']>((id, patch) => {
+    mutate((d) => ({
+      ...d,
+      repayments: d.repayments.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+    }))
+  }, [mutate])
+
+  const deleteRepayment = useCallback<Store['deleteRepayment']>((id) => {
+    mutate((d) => ({ ...d, repayments: d.repayments.filter((r) => r.id !== id) }))
+  }, [mutate])
+
   const updateSettings = useCallback<Store['updateSettings']>((patch) => {
     mutate((d) => ({ ...d, settings: { ...d.settings, ...patch } }))
   }, [mutate])
@@ -202,6 +284,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addPayout,
       updatePayout,
       deletePayout,
+      addPerson,
+      updatePerson,
+      deletePerson,
+      addLoan,
+      updateLoan,
+      deleteLoan,
+      addRepayment,
+      updateRepayment,
+      deleteRepayment,
       updateSettings,
       replaceAll,
       resetAll,
@@ -217,6 +308,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addPayout,
       updatePayout,
       deletePayout,
+      addPerson,
+      updatePerson,
+      deletePerson,
+      addLoan,
+      updateLoan,
+      deleteLoan,
+      addRepayment,
+      updateRepayment,
+      deleteRepayment,
       updateSettings,
       replaceAll,
       resetAll,

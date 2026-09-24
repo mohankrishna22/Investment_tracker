@@ -147,6 +147,12 @@ h1, h2, h3, h4 { margin: 0; line-height: 1.25; letter-spacing: -0.01em; }
 .badge-plain { text-transform: none; }
 .badge.active { color: var(--pos); border-color: color-mix(in srgb, var(--pos) 35%, transparent); background: color-mix(in srgb, var(--pos) 12%, transparent); }
 .badge.closed { color: var(--muted); }
+.badge.overdue {
+  color: var(--neg);
+  border-color: color-mix(in srgb, var(--neg) 35%, transparent);
+  background: color-mix(in srgb, var(--neg) 12%, transparent);
+  text-transform: none;
+}
 .badge.planned { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 35%, transparent); background: color-mix(in srgb, var(--warn) 12%, transparent); }
 
 button, .btn {
@@ -292,7 +298,7 @@ tr:hover .row-actions { opacity: 1; }
     z-index: 30;
     margin: 0;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 0;
     padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
     background: color-mix(in srgb, var(--surface) 94%, transparent);
@@ -301,9 +307,9 @@ tr:hover .row-actions { opacity: 1; }
   }
   .nav a {
     text-align: center;
-    padding: 10px 4px;
+    padding: 10px 2px;
     border-radius: 10px;
-    font-size: 13px;
+    font-size: 11.5px;
     min-height: 44px;
     display: flex;
     align-items: center;

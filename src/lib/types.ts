@@ -40,6 +40,41 @@ export interface Payout {
   notes: string
 }
 
+export type LoanStatus = 'open' | 'settled' | 'written-off'
+
+/** Someone money has been lent to. */
+export interface Person {
+  id: string
+  name: string
+  /** Phone, email, "college friend" — whatever helps you place them. */
+  contact: string
+  notes: string
+  color: string
+  createdAt: string
+}
+
+export interface Loan {
+  id: string
+  personId: string
+  date: string // ISO yyyy-mm-dd
+  amount: number
+  /** What it was for, e.g. "Bike repair". */
+  purpose: string
+  /** Optional date it was promised back by; drives the overdue flag. */
+  dueDate?: string
+  notes: string
+  /** Set when you have decided the money is not coming back. */
+  writtenOff?: boolean
+}
+
+export interface Repayment {
+  id: string
+  personId: string
+  date: string
+  amount: number
+  notes: string
+}
+
 export interface Settings {
   currency: string
   locale: string
@@ -54,6 +89,9 @@ export interface AppData {
   ventures: Venture[]
   investments: Investment[]
   payouts: Payout[]
+  people: Person[]
+  loans: Loan[]
+  repayments: Repayment[]
   settings: Settings
 }
 
@@ -69,6 +107,16 @@ export const EXPENSE_CATEGORIES = [
   'Licenses & Fees',
   'Renovation',
   'Logistics',
+  'Other',
+]
+
+export const LOAN_PURPOSES = [
+  'Personal',
+  'Medical',
+  'Education',
+  'Business',
+  'Travel',
+  'Emergency',
   'Other',
 ]
 
