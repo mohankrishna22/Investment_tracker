@@ -77,6 +77,26 @@ If the same row was edited on two devices since their last sync, the most recent
 wins and the app says so rather than merging silently — so a backup is still worth
 taking before big changes.
 
+**Keeping the project awake.** Supabase pauses a free-tier project after about a week
+with no activity. Paused is not deleted — the data stays on disk and one click in the
+dashboard brings it back — but sync stops until you do. `.github/workflows/keepalive.yml`
+pings the project once a day so it never gets there. To switch it on, add two
+repository secrets under **Settings → Secrets and variables → Actions**:
+
+| Secret | Value |
+| --- | --- |
+| `SUPABASE_URL` | the same Project URL you pasted into the app |
+| `SUPABASE_ANON_KEY` | the same anon public key |
+
+The ping reads a deliberately non-existent sync ID, so it writes nothing and your real
+sync ID never goes near GitHub. Without the secrets the job just reports that there is
+nothing to ping. It fails loudly if the project stops answering, so a dead or paused
+project reaches you as a failed-workflow email rather than silence.
+
+Two things that can stop the schedule: GitHub disables cron workflows in a repository
+with no pushes for 60 days (it emails first), and scheduled runs can be delayed under
+load. Neither is fatal here — a missed day is fine, a missed fortnight is not.
+
 **Seeing the raw data.** In Supabase, **Table Editor → `snapshots`** shows one row per
 sync ID — the whole portfolio is a single JSON document in the `data` column, not a
 table per entity, so the editor is not much to look at. [`supabase/queries.sql`](supabase/queries.sql)

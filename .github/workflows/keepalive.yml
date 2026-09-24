@@ -1,0 +1,51 @@
+name: Keep Supabase awake
+
+# Supabase pauses a free-tier project after about a week with no activity. One
+# cheap read a day resets that clock, so sync never goes cold.
+on:
+  schedule:
+    # 06:40 UTC daily. An off-the-hour minute avoids GitHub's busiest slots,
+    # where scheduled jobs are most likely to be delayed or dropped.
+    - cron: '40 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the project
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "SUPABASE_URL or SUPABASE_ANON_KEY is not set — nothing to ping."
+            echo "Add them under Settings → Secrets and variables → Actions."
+            exit 0
+          fi
+
+          # Trailing slashes in the pasted URL would double up in the path.
+          url="${SUPABASE_URL%/}"
+
+          # A read for a sync id that does not exist. It returns an empty list,
+          # writes nothing, and still counts as activity — so the real sync id
+          # never has to be stored in GitHub.
+          status=$(curl -sS -o /tmp/body -w '%{http_code}' \
+            -X POST "$url/rest/v1/rpc/pull_snapshot" \
+            -H 'Content-Type: application/json' \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -d '{"p_id":"github-actions-keepalive"}')
+
+          echo "HTTP $status"
+          if [ "$status" != "200" ]; then
+            # Fail loudly: a paused, deleted or misconfigured project is
+            # something worth an email about, not something to swallow.
+            echo "Ping failed. Response body:"
+            cat /tmp/body
+            exit 1
+          fi
+
+          echo "Project is awake."
