@@ -40,6 +40,8 @@ else
   cat > "$CONFIG" <<EOF
 SUPABASE_URL=$url
 SUPABASE_ANON_KEY=$key
+# Notification banner after each run: always | failure | never
+KEEPALIVE_NOTIFY=always
 EOF
   chmod 600 "$CONFIG"
   echo "Saved to $CONFIG (readable only by you)."
@@ -47,6 +49,8 @@ fi
 
 echo
 echo "Testing the ping before scheduling it…"
+echo "(macOS may ask for permission to send notifications — say yes, or the"
+echo " daily banner will not appear.)"
 if ! bash "$SCRIPT_PATH"; then
   echo
   echo "The test failed, so nothing was scheduled. Check the URL and key in $CONFIG."
@@ -91,6 +95,9 @@ fi
 
 echo
 echo "Scheduled. It runs daily at $(printf '%02d:%02d' "$HOUR" "$MINUTE"), and at login."
+echo "A banner confirms each run. To see only failures, set KEEPALIVE_NOTIFY=failure"
+echo "in $CONFIG (or 'never' to stay silent — the log still records every run)."
+echo
 echo "  Log:      $LOG"
 echo "  Status:   launchctl list | grep investment-tracker"
 echo "  Run now:  launchctl kickstart gui/$(id -u)/$LABEL"

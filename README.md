@@ -125,6 +125,13 @@ at 12:30 and at login. `launchd` is used rather than `cron` because it catches u
 run the Mac slept through; `cron` silently skips it. Set `KEEPALIVE_HOUR` and
 `KEEPALIVE_MINUTE` to move the time.
 
+**You get a notification banner after each run**, so a scheduled ping is visible
+without going to look for it — a plain confirmation on success, and one with a warning
+sound if the project did not answer. macOS asks for notification permission the first
+time; say yes or the banners never appear. Change `KEEPALIVE_NOTIFY` in the config
+file to `failure` once the daily confirmation stops being useful, or `never` to stay
+silent (the log still records every run either way).
+
 | | |
 | --- | --- |
 | Log | `~/Library/Logs/investment-tracker-keepalive.log` |
