@@ -1,8 +1,8 @@
-import { useCallback, useState } from 'react'
-import { HashRouter, Link, Navigate, NavLink, Route, Routes } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
+import { HashRouter, Link, Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { StoreProvider, useStore } from './lib/store'
 import { SyncProvider, useSync } from './lib/syncEngine'
-import { useTheme } from './lib/theme'
+import { ThemeContext, useTheme, useThemeControls } from './lib/theme'
 import Dashboard from './pages/Dashboard'
 import VentureDetail from './pages/VentureDetail'
 import Reports from './pages/Reports'
@@ -15,6 +15,8 @@ import { forgetUnlock, isUnlocked } from './lib/lock'
 import { useAutoLock } from './lib/useAutoLock'
 import { useUpdateCheck } from './lib/useUpdateCheck'
 import Lock from './components/Lock'
+import { backupNudgeDue, daysSinceBackup, downloadBackup, snoozeBackupNudge } from './lib/backupReminder'
+import { isEmpty } from './lib/schema'
 
 /**
  * App-wide notices that must not be missed, whichever page is open: a newer
@@ -24,6 +26,16 @@ import Lock from './components/Lock'
 function AppBanners() {
   const { updateAvailable, latest } = useUpdateCheck()
   const { state, repairNote, dismissRepair } = useSync()
+  const { data } = useStore()
+  // Re-evaluated when a backup is taken or the nudge snoozed, from anywhere.
+  const [, refresh] = useState(0)
+  useEffect(() => {
+    const bump = () => refresh((n) => n + 1)
+    window.addEventListener('backup-recorded', bump)
+    return () => window.removeEventListener('backup-recorded', bump)
+  }, [])
+  const nudge = backupNudgeDue(!isEmpty(data))
+  const since = daysSinceBackup()
   // GitHub Pages lets browsers cache the HTML for ten minutes, so a plain reload
   // just after a deploy can hand back the same stale page. A fresh query string
   // is a different URL as far as that cache is concerned.
@@ -62,35 +74,77 @@ function AppBanners() {
           </button>
         </div>
       )}
+      {nudge && !repairNote && state !== 'outdated' && (
+        <div className="app-banner subtle" role="status">
+          <span>
+            {since === null
+              ? 'You have not downloaded a backup on this device yet.'
+              : `Your last backup from this device was ${since} days ago.`}{' '}
+            A file you keep yourself is the one copy nothing else can overwrite.
+          </span>
+          <button className="btn-primary btn-sm" onClick={() => downloadBackup(data)}>
+            Download backup
+          </button>
+          <button className="btn-sm" onClick={() => snoozeBackupNudge()}>
+            Remind me in a week
+          </button>
+        </div>
+      )}
     </>
   )
 }
 
-/** A quiet indicator; the detail lives in Settings. */
+/**
+ * A quiet indicator; the detail lives in Settings. It says "Synced" only when the
+ * cloud really has everything — edits still waiting to leave show as such.
+ */
 function SyncBadge() {
-  const { config, state } = useSync()
+  const { config, state, pending } = useSync()
   if (!config) return null
-  const label =
+  const [label, tone, title] =
     state === 'syncing'
-      ? 'Syncing…'
-      : state === 'error'
-        ? 'Sync failed'
-        : state === 'outdated'
-          ? 'Update needed'
-          : 'Synced'
+      ? ['Syncing…', '', 'Talking to the cloud']
+      : state === 'offline'
+        ? ['Offline', 'planned', 'Changes are saved here and will sync when you reconnect']
+        : state === 'error'
+          ? ['Sync failed', 'planned', 'Open Settings for details']
+          : state === 'outdated'
+            ? ['Update needed', 'planned', 'Reload the app to update it']
+            : pending
+              ? ['Saving…', '', 'Changes on this device are about to sync']
+              : ['Synced', 'active', 'Everything on this device is in the cloud']
   return (
-    <Link
-      to="/settings"
-      className={`badge badge-plain ${state === 'error' || state === 'outdated' ? 'planned' : state === 'idle' ? 'active' : ''}`}
-      title="Cloud sync status"
-    >
+    <Link to="/settings" className={`badge badge-plain ${tone}`} title={title}>
       {label}
     </Link>
   )
 }
 
-function Shell({ onLock, dark }: { onLock: () => void; dark: boolean }) {
-  const { data, updateSettings } = useStore()
+function NavLinks() {
+  return (
+    <>
+      <NavLink to="/" end>
+        Investments
+      </NavLink>
+      <NavLink to="/lending">Loans</NavLink>
+      <NavLink to="/reports">Reports</NavLink>
+      <NavLink to="/settings">Settings</NavLink>
+    </>
+  )
+}
+
+/** Opens each page at its top, instead of wherever the last page was scrolled to. */
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [pathname])
+  return null
+}
+
+function Shell({ onLock }: { onLock: () => void }) {
+  const { data } = useStore()
+  const { dark, setPreference } = useThemeControls()
 
   return (
     <div className="app">
@@ -99,20 +153,15 @@ function Shell({ onLock, dark }: { onLock: () => void; dark: boolean }) {
           <span className="brand-mark">{currencySymbol(data.settings)}</span>
           <span className="brand-text">Investment Tracker</span>
         </Link>
-        <nav className="nav">
-          <NavLink to="/" end>
-            Investments
-          </NavLink>
-          <NavLink to="/lending">Loans</NavLink>
-          <NavLink to="/reports">Reports</NavLink>
-          <NavLink to="/settings">Settings</NavLink>
+        <nav className="nav nav-top" aria-label="Main">
+          <NavLinks />
         </nav>
         <div className="topbar-spacer" />
         <SyncBadge />
         <button
           className="btn-ghost btn-sm"
           title="Toggle light and dark"
-          onClick={() => updateSettings({ theme: dark ? 'light' : 'dark' })}
+          onClick={() => setPreference(dark ? 'light' : 'dark')}
         >
           {dark ? '☀️' : '🌙'}
         </button>
@@ -124,6 +173,16 @@ function Shell({ onLock, dark }: { onLock: () => void; dark: boolean }) {
           Lock
         </button>
       </header>
+      {/*
+        The phone tab bar lives outside the header on purpose. The header's blur
+        (backdrop-filter) makes it the anchor for any position:fixed child, so a
+        bar inside it pinned itself to the header — over the Lock button — instead
+        of to the bottom of the screen.
+      */}
+      <nav className="nav nav-bottom" aria-label="Main">
+        <NavLinks />
+      </nav>
+      <ScrollToTop />
       <AppBanners />
       <Routes>
         <Route path="/" element={<Dashboard dark={dark} />} />
@@ -142,7 +201,7 @@ function Shell({ onLock, dark }: { onLock: () => void; dark: boolean }) {
 /** Sits inside the store so the lock screen wears the saved theme too. */
 function Gate() {
   const { data } = useStore()
-  const dark = useTheme(data.settings.theme)
+  const theme = useTheme(data.settings.theme)
   const [unlocked, setUnlocked] = useState(isUnlocked)
   const [expired, setExpired] = useState(false)
 
@@ -159,24 +218,25 @@ function Gate() {
     }, [lock]),
   )
 
-  if (!unlocked)
-    return (
-      <Lock
-        expired={expired}
-        onUnlock={() => {
-          setExpired(false)
-          setUnlocked(true)
-        }}
-      />
-    )
-
   return (
-    // Hash routing keeps deep links working on static hosts like GitHub Pages.
-    <HashRouter>
-      <SyncProvider>
-        <Shell dark={dark} onLock={lock} />
-      </SyncProvider>
-    </HashRouter>
+    <ThemeContext.Provider value={theme}>
+      {unlocked ? (
+        // Hash routing keeps deep links working on static hosts like GitHub Pages.
+        <HashRouter>
+          <SyncProvider>
+            <Shell onLock={lock} />
+          </SyncProvider>
+        </HashRouter>
+      ) : (
+        <Lock
+          expired={expired}
+          onUnlock={() => {
+            setExpired(false)
+            setUnlocked(true)
+          }}
+        />
+      )}
+    </ThemeContext.Provider>
   )
 }
 

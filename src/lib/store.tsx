@@ -18,30 +18,15 @@ import type {
   Venture,
 } from './types'
 import { nextPaletteColor } from './types'
+import { COLLECTIONS, DATA_VERSION, NEVER, allIds } from './schema'
+import { mergeSnapshots } from './merge'
+import { localIsoDate } from './dates'
+import type { ImportAdditions } from './csvImport'
+
+// Re-exported so existing imports keep working.
+export { COLLECTIONS, DATA_VERSION, NEVER, allIds }
 
 const STORAGE_KEY = 'investment-tracker/v1'
-
-/**
- * Bumped whenever the shape of AppData grows. 1 = investments only; 2 = loans in
- * both directions. Sync uses it to spot a device running an older build.
- */
-export const DATA_VERSION = 2
-
-/** The collections a build of each version knows how to carry. */
-export const COLLECTIONS = [
-  'ventures',
-  'investments',
-  'payouts',
-  'people',
-  'loans',
-  'repayments',
-] as const
-
-/**
- * A store nobody has touched must never look freshly edited: stamping it with
- * "now" would let an empty device win a sync against a device holding real data.
- */
-export const NEVER = new Date(0).toISOString()
 
 export const emptyData = (): AppData => ({
   version: DATA_VERSION,
@@ -61,11 +46,6 @@ export const emptyData = (): AppData => ({
   },
 })
 
-/** Every record id in a snapshot, across all collections. */
-export function allIds(d: AppData): string[] {
-  return COLLECTIONS.flatMap((key) => (d[key] as { id: string }[]).map((item) => item.id))
-}
-
 /** Records the given ids as deleted now, so the deletion survives a merge. */
 function tombstone(d: AppData, ids: string[]): AppData['deleted'] {
   if (ids.length === 0) return d.deleted
@@ -78,7 +58,8 @@ function tombstone(d: AppData, ids: string[]): AppData['deleted'] {
 export const uid = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 
-export const today = () => new Date().toISOString().slice(0, 10)
+/** Today on the user's own calendar — not UTC, which is a day behind before 05:30 in India. */
+export const today = () => localIsoDate()
 
 /**
  * Merges stored JSON onto a fresh shape so older/partial backups still load.
@@ -146,7 +127,20 @@ interface Store {
   updateRepayment: (id: string, patch: Partial<Repayment>) => void
   deleteRepayment: (id: string) => void
   updateSettings: (patch: Partial<Settings>) => void
-  replaceAll: (data: AppData, options?: { keepTimestamp?: boolean }) => void
+  /** Adds a batch of records in a single change, assigning colours to new ventures/people. */
+  addMany: (add: ImportAdditions) => void
+  replaceAll: (
+    data: AppData,
+    options?: {
+      keepTimestamp?: boolean
+      /**
+       * The updatedAt the caller based its decision on. If the data has moved on
+       * since — an edit landed while a sync was fetching — the incoming copy is
+       * merged with the newer data instead of replacing it.
+       */
+      basedOn?: string
+    },
+  ) => void
   resetAll: () => void
 }
 
@@ -326,11 +320,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     mutate((d) => ({ ...d, settings: { ...d.settings, ...patch } }))
   }, [mutate])
 
+  const addMany = useCallback<Store['addMany']>((add) => {
+    mutate((d) => {
+      const ventureColors = d.ventures.map((v) => v.color)
+      const ventures = add.ventures.map((v) => {
+        const color = nextPaletteColor(ventureColors)
+        ventureColors.push(color)
+        return { ...v, color }
+      })
+      const peopleColors = d.people.map((p) => p.color)
+      const people = add.people.map((p) => {
+        const color = nextPaletteColor(peopleColors)
+        peopleColors.push(color)
+        return { ...p, color }
+      })
+      return {
+        ...d,
+        ventures: [...d.ventures, ...ventures],
+        investments: [...d.investments, ...add.investments],
+        payouts: [...d.payouts, ...add.payouts],
+        people: [...d.people, ...people],
+        loans: [...d.loans, ...add.loans],
+        repayments: [...d.repayments, ...add.repayments],
+      }
+    })
+  }, [mutate])
+
   const replaceAll = useCallback<Store['replaceAll']>((next, options) => {
     const normalised = normalise(next)
-    // Adopting a remote snapshot keeps its timestamp and its deletion record as-is.
+    // Adopting a remote snapshot keeps its timestamp and its deletion record as-is,
+    // unless this device changed underneath the caller, in which case both are kept.
     if (options?.keepTimestamp) {
-      setData(normalised)
+      const basedOn = options.basedOn
+      setData((current) =>
+        basedOn === undefined || current.updatedAt === basedOn
+          ? normalised
+          : mergeSnapshots(current, normalised),
+      )
       return
     }
     // A restore or sample load is a new change. Anything it drops is recorded as
@@ -381,6 +407,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateRepayment,
       deleteRepayment,
       updateSettings,
+      addMany,
       replaceAll,
       resetAll,
     }),
@@ -405,6 +432,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateRepayment,
       deleteRepayment,
       updateSettings,
+      addMany,
       replaceAll,
       resetAll,
     ],

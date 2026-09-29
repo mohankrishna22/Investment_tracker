@@ -47,23 +47,62 @@ export function normaliseUrl(url: string) {
   return url.trim().replace(/\/+$/, '')
 }
 
+/**
+ * Without a limit, a request on a flaky mobile connection can hang for minutes,
+ * and sync — which runs one request at a time — would stall behind it.
+ */
+const REQUEST_TIMEOUT_MS = 20_000
+
 async function rpc<T>(config: SyncConfig, fn: string, body: unknown): Promise<T> {
-  const response = await fetch(`${normaliseUrl(config.url)}/rest/v1/rpc/${fn}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: config.anonKey,
-      Authorization: `Bearer ${config.anonKey}`,
-    },
-    body: JSON.stringify(body),
-  })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  let response: Response
+  try {
+    response = await fetch(`${normaliseUrl(config.url)}/rest/v1/rpc/${fn}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: config.anonKey,
+        Authorization: `Bearer ${config.anonKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+  } catch (cause) {
+    // fetch itself only rejects when the request never completed: no network,
+    // DNS, a blocked host, or our timeout. Label it, so callers can tell it
+    // apart from a genuine bug elsewhere.
+    throw new NetworkError(cause)
+  } finally {
+    clearTimeout(timer)
+  }
   if (!response.ok) {
     const detail = await response.text().catch(() => '')
-    throw new Error(
-      `${response.status} ${response.statusText}${detail ? ` — ${detail.slice(0, 200)}` : ''}`,
-    )
+    throw new RpcError(response.status, detail)
   }
   return (await response.json()) as T
+}
+
+/** The request never reached the server, or timed out waiting for it. */
+export class NetworkError extends Error {
+  constructor(readonly cause: unknown) {
+    super(cause instanceof Error ? cause.message : 'Network request failed')
+  }
+}
+
+/** A failed call, keeping the status so callers can tell "missing" from "broken". */
+export class RpcError extends Error {
+  constructor(
+    readonly status: number,
+    readonly detail: string,
+  ) {
+    super(`${status}${detail ? ` — ${detail.slice(0, 200)}` : ''}`)
+  }
+
+  /** PostgREST's answer when a function has not been created (e.g. history.sql not run). */
+  get missingFunction() {
+    return this.status === 404 || this.detail.includes('PGRST202')
+  }
 }
 
 export interface RemoteSnapshot {
@@ -81,6 +120,38 @@ export async function pullSnapshot(config: SyncConfig): Promise<RemoteSnapshot |
 
 export async function pushSnapshot(config: SyncConfig, data: AppData): Promise<string> {
   return await rpc<string>(config, 'push_snapshot', { p_id: config.syncId, p_data: data })
+}
+
+export interface HistoryEntry {
+  historyId: number
+  savedAt: string
+  counts: { ventures: number; investments: number; people: number; loans: number }
+}
+
+/** Past cloud versions, newest first. Throws RpcError.missingFunction if not set up. */
+export async function listHistory(config: SyncConfig): Promise<HistoryEntry[]> {
+  const rows = await rpc<
+    {
+      history_id: number
+      saved_at: string
+      ventures: number
+      investments: number
+      people: number
+      loans: number
+    }[]
+  >(config, 'list_history', { p_id: config.syncId })
+  return (Array.isArray(rows) ? rows : []).map((r) => ({
+    historyId: r.history_id,
+    savedAt: r.saved_at,
+    counts: { ventures: r.ventures, investments: r.investments, people: r.people, loans: r.loans },
+  }))
+}
+
+export async function getHistory(config: SyncConfig, historyId: number): Promise<AppData | null> {
+  return await rpc<AppData | null>(config, 'get_history', {
+    p_id: config.syncId,
+    p_history_id: historyId,
+  })
 }
 
 /** Round-trips the config through a link the other device can open. */

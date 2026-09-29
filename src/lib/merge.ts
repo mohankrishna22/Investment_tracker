@@ -1,4 +1,4 @@
-import { COLLECTIONS, DATA_VERSION, allIds } from './store'
+import { COLLECTIONS, DATA_VERSION, allIds } from './schema'
 import type { AppData } from './types'
 
 /** Deletions older than this are forgotten, keeping the record from growing forever. */

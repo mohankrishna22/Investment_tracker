@@ -1,44 +1,77 @@
 import { useRef, useState } from 'react'
 import { useStore } from '../lib/store'
 import { demoData } from '../lib/demo'
-import { download } from '../lib/csv'
 import { ConfirmButton, Field } from '../components/ui'
 import { normalise } from '../lib/store'
 import SyncCard from '../components/SyncCard'
 import SafetyCopies from '../components/SafetyCopies'
+import CloudHistory from '../components/CloudHistory'
+import { isEmpty } from '../lib/schema'
+import { daysSinceBackup, downloadBackup } from '../lib/backupReminder'
+import { useThemeControls } from '../lib/theme'
+import { planImport } from '../lib/csvImport'
+import { uid } from '../lib/store'
 
 const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'AUD', 'CAD', 'JPY']
 const LOCALES = ['en-IN', 'en-US', 'en-GB', 'de-DE', 'fr-FR', 'ja-JP']
 
 export default function Settings() {
-  const { data, updateSettings, replaceAll, resetAll } = useStore()
+  const { data, updateSettings, replaceAll, resetAll, addMany } = useStore()
+  const csvInput = useRef<HTMLInputElement>(null)
+  const { preference, setPreference } = useThemeControls()
   const fileInput = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState('')
 
   const exportBackup = () => {
-    download(
-      `investment-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`,
-      JSON.stringify(data, null, 2),
-      'application/json',
-    )
+    downloadBackup(data)
     setMessage('Backup downloaded.')
   }
+  const since = daysSinceBackup()
 
   const importBackup = async (file: File) => {
     try {
       const parsed = JSON.parse(await file.text())
       const next = normalise(parsed)
-      if (!next.ventures.length && !next.investments.length) {
-        setMessage('That file had no investments in it — nothing was changed.')
+      // A backup holding only loans is still a backup — the check covers every
+      // kind of record, not just investments.
+      if (isEmpty(next)) {
+        setMessage('That file had no records in it — nothing was changed.')
         return
       }
       replaceAll(next)
       setMessage(
-        `Restored ${next.ventures.length} investment types and ${next.investments.length} entries.`,
+        `Restored ${next.ventures.length} investment types, ${next.investments.length} investments, ` +
+          `${next.people.length} people and ${next.loans.length} loans.`,
       )
     } catch {
       setMessage('Could not read that file — it needs to be a backup exported from here.')
     }
+  }
+
+  const importCsv = async (files: FileList) => {
+    const loaded = await Promise.all(
+      [...files].map(async (file) => ({ name: file.name, text: await file.text() })),
+    )
+    const { add, summary } = planImport(loaded, data, uid)
+    const added = summary.investments + summary.payouts + summary.loans + summary.repayments
+    if (added > 0) addMany(add)
+    const parts = [
+      summary.investments && `${summary.investments} investments`,
+      summary.payouts && `${summary.payouts} returns`,
+      summary.loans && `${summary.loans} loans`,
+      summary.repayments && `${summary.repayments} repayments`,
+    ].filter(Boolean)
+    const notes = [
+      summary.newVentures && `created ${summary.newVentures} investment types`,
+      summary.newPeople && `created ${summary.newPeople} people`,
+      summary.duplicates && `skipped ${summary.duplicates} already here`,
+      summary.invalid && `skipped ${summary.invalid} unreadable rows`,
+      summary.unrecognised.length && `did not recognise ${summary.unrecognised.join(', ')}`,
+    ].filter(Boolean)
+    setMessage(
+      (added > 0 ? `Imported ${parts.join(', ')}.` : 'Nothing new to import.') +
+        (notes.length ? ` (${notes.join('; ')}.)` : ''),
+    )
   }
 
   return (
@@ -103,10 +136,10 @@ export default function Settings() {
                   ))}
                 </select>
               </Field>
-              <Field label="Theme">
+              <Field label="Theme (this device only)">
                 <select
-                  value={data.settings.theme}
-                  onChange={(e) => updateSettings({ theme: e.target.value as never })}
+                  value={preference}
+                  onChange={(e) => setPreference(e.target.value as never)}
                 >
                   <option value="system">Match system</option>
                   <option value="light">Light</option>
@@ -141,9 +174,37 @@ export default function Settings() {
                 }}
               />
             </div>
-            <div className="inline-note">Restoring replaces everything currently stored.</div>
+            <div className="inline-note">
+              Restoring replaces everything currently stored. Last backup from this device:{' '}
+              <strong>
+                {since === null ? 'never' : since === 0 ? 'today' : `${since} day${since === 1 ? '' : 's'} ago`}
+              </strong>
+              .
+            </div>
+
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+              <button onClick={() => csvInput.current?.click()}>Import from CSV</button>
+              <input
+                ref={csvInput}
+                type="file"
+                accept=".csv,text/csv"
+                multiple
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  if (e.target.files?.length) void importCsv(e.target.files)
+                  e.target.value = ''
+                }}
+              />
+              <div className="inline-note">
+                Adds records from CSVs this app exported — investments, returns, or loans, including
+                per-person exports. Nothing is replaced, and anything already here is skipped, so
+                importing the same file twice is safe. You can pick several files at once.
+              </div>
+            </div>
           </div>
         </div>
+
+        <CloudHistory locale={data.settings.locale} />
 
         <SafetyCopies locale={data.settings.locale} />
 

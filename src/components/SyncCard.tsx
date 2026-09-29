@@ -3,6 +3,7 @@ import QRCode from 'qrcode'
 import { useSync, type CloudSummary } from '../lib/syncEngine'
 import { useStore } from '../lib/store'
 import { BUILD_ID } from '../lib/useUpdateCheck'
+import { isEmpty } from '../lib/schema'
 import { newSyncId, normaliseUrl, pairingLink } from '../lib/sync'
 import { ConfirmButton, Field } from './ui'
 
@@ -12,6 +13,7 @@ const STATUS_TEXT: Record<string, string> = {
   syncing: 'Syncing…',
   error: 'Sync failed',
   outdated: 'Update needed',
+  offline: 'Offline',
 }
 
 const LABELS: Record<string, string> = {
@@ -146,6 +148,11 @@ export default function SyncCard({ locale }: { locale: string }) {
     return () => clearInterval(timer)
   }, [])
   const [form, setForm] = useState({ url: '', anonKey: '', syncId: '' })
+  const { data } = useStore()
+  // Typing an existing sync ID on a device that has data means joining a cloud
+  // copy that may already hold everything; default to taking it, not merging.
+  const [takeCloud, setTakeCloud] = useState(true)
+  const joiningExisting = form.syncId.trim() !== '' && !isEmpty(data)
   const [qr, setQr] = useState('')
   const [showPairing, setShowPairing] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -182,11 +189,14 @@ export default function SyncCard({ locale }: { locale: string }) {
             onSubmit={(e) => {
               e.preventDefault()
               if (!form.url || !form.anonKey) return
-              void connect({
-                url: normaliseUrl(form.url),
-                anonKey: form.anonKey.trim(),
-                syncId: form.syncId.trim() || newSyncId(),
-              })
+              void connect(
+                {
+                  url: normaliseUrl(form.url),
+                  anonKey: form.anonKey.trim(),
+                  syncId: form.syncId.trim() || newSyncId(),
+                },
+                { takeCloud: joiningExisting && takeCloud },
+              )
             }}
           >
             <Field label="Project URL" wide>
@@ -220,6 +230,26 @@ export default function SyncCard({ locale }: { locale: string }) {
                 This is the only thing keeping your data private — treat it like a password.
               </div>
             </Field>
+            {joiningExisting && (
+              <label
+                className="field-wide"
+                style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontSize: 14 }}
+              >
+                <input
+                  type="checkbox"
+                  style={{ width: 'auto', marginTop: 3 }}
+                  checked={takeCloud}
+                  onChange={(e) => setTakeCloud(e.target.checked)}
+                />
+                <span>
+                  Replace this device's data with what is already in the cloud
+                  <span className="inline-note" style={{ display: 'block', marginTop: 2 }}>
+                    Recommended when joining an existing sync. This device's current data is
+                    kept as a safety copy. Untick to combine it with the cloud instead.
+                  </span>
+                </span>
+              </label>
+            )}
             <div className="field-wide">
               <button type="submit" className="btn-primary">
                 Connect
@@ -237,7 +267,7 @@ export default function SyncCard({ locale }: { locale: string }) {
         <h3>Cloud sync</h3>
         <div className="spacer" />
         <span
-          className={`badge badge-plain ${state === 'error' || state === 'outdated' ? 'planned' : state === 'idle' ? 'active' : ''}`}
+          className={`badge badge-plain ${state === 'error' || state === 'outdated' || state === 'offline' ? 'planned' : state === 'idle' ? 'active' : ''}`}
         >
           {STATUS_TEXT[state] ?? state}
         </span>
@@ -253,8 +283,14 @@ export default function SyncCard({ locale }: { locale: string }) {
           </div>
         )}
         {error && (
-          <div className="banner" style={{ background: 'transparent', borderColor: 'var(--neg)' }}>
-            <span className="neg">{error}</span>
+          <div
+            className="banner"
+            style={{
+              background: 'transparent',
+              borderColor: state === 'offline' ? 'var(--border)' : 'var(--neg)',
+            }}
+          >
+            <span className={state === 'offline' ? 'muted' : 'neg'}>{error}</span>
           </div>
         )}
 

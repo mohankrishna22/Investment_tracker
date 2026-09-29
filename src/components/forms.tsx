@@ -106,6 +106,7 @@ export function VentureForm({
           <Field label="Capital target (optional)">
             <input
               type="number"
+              inputMode="decimal"
               min="0"
               step="any"
               value={form.targetAmount}
@@ -116,6 +117,7 @@ export function VentureForm({
           <Field label="Current value (optional)">
             <input
               type="number"
+              inputMode="decimal"
               min="0"
               step="any"
               value={form.currentValue}
@@ -235,8 +237,9 @@ export function InvestmentForm({
           <Field label="Amount">
             <input
               type="number"
+              inputMode="decimal"
               required
-              min="0"
+              min="0.01"
               step="any"
               autoFocus
               value={form.amount}
@@ -347,8 +350,9 @@ export function PayoutForm({
           <Field label="Amount received">
             <input
               type="number"
+              inputMode="decimal"
               required
-              min="0"
+              min="0.01"
               step="any"
               autoFocus
               value={form.amount}

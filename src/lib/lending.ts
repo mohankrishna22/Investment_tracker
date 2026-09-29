@@ -1,4 +1,5 @@
 import type { AppData, Loan, LoanDirection, Person, Repayment } from './types'
+import { daysBetween, localIsoDate, localIsoDateIn } from './dates'
 
 export interface LoanState {
   loan: Loan
@@ -12,14 +13,8 @@ export interface LoanState {
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
 
-const todayIso = () => new Date().toISOString().slice(0, 10)
-
-function daysBetween(fromIso: string, toIso: string) {
-  const from = Date.parse(fromIso)
-  const to = Date.parse(toIso)
-  if (Number.isNaN(from) || Number.isNaN(to)) return 0
-  return Math.floor((to - from) / 86400000)
-}
+// The user's calendar, so "overdue" turns over at local midnight.
+const todayIso = () => localIsoDate()
 
 /**
  * Repayments are not tagged with a loan — asking which of four loans a transfer
@@ -205,7 +200,7 @@ export interface DueSoon {
 /** Unsettled loans due within `days`, plus everything already overdue, both ways. */
 export function dueSoon(data: AppData, days = 30): DueSoon[] {
   const today = todayIso()
-  const horizon = new Date(Date.now() + days * 86400000).toISOString().slice(0, 10)
+  const horizon = localIsoDateIn(days)
 
   return data.people
     .flatMap((person) => {

@@ -37,9 +37,10 @@ or falling due in the next 30 days, in both directions — who to chase, and who
 A loan can be written off (or forgiven, borrowing the other way), which keeps the
 record without it counting towards a balance.
 
-**Reports** gives a month-by-month cash-flow table, the spend mix by expense category
-and by sector, and a full ledger of every transaction — filterable by year and
-exportable to CSV.
+**Reports** covers both sides: investments month by month, the spend mix by expense
+category and by sector, current loan balances with each person, loan activity by month,
+and a single cash-flow ledger of every rupee in and out — investments, returns, money
+lent, borrowed and repaid — filterable by year and by kind, and exportable to CSV.
 
 ### Beyond the basics
 
@@ -50,12 +51,18 @@ exportable to CSV.
 - **Capital targets** — set a target per venture and the card shows a funding bar.
 - **Status** — active, planned or closed, with filtering on the home page.
 - **Search and sort** by name, category, amount invested, returns, ROI or recency.
-- **CSV export** for investments, returns and a portfolio summary.
-- **JSON backup and restore**, so data survives a cleared browser or a new machine.
+- **CSV export** for investments, returns, loans and a portfolio summary — with a
+  byte-order mark, so Excel shows "₹" and non-English names correctly.
+- **CSV import** of anything the app exported, including per-person loan exports and
+  the older pre-borrowing format. Records are added, never replaced, and anything
+  already present is skipped, so importing the same file twice is harmless.
+- **JSON backup and restore**, with a reminder when this device has no backup from the
+  last 30 days (snoozable for a week).
+- **Installs to your phone's home screen** with its own icon, opening full screen.
 - **Sample portfolio** — three ventures and three borrowers with real history, to
   explore the app before entering anything of your own.
-- **Light and dark themes**, currency and locale settings, and a layout that works
-  on a phone.
+- **Light and dark themes** (chosen per device), currency and locale settings, and a
+  phone layout with a bottom tab bar.
 
 ## Access code
 
@@ -208,6 +215,24 @@ mismatch in red, plus the build the device is running. **Replace this device wit
 cloud copy** discards the device's local data and takes the cloud's — the fix for a
 device that has drifted.
 
+**Cloud version history (recommended).** Run
+[`supabase/history.sql`](supabase/history.sql) in the SQL editor too. From then on,
+every time any device saves, the database keeps the version it replaced — up to 200 —
+and **Settings → Cloud version history** lists them with their record counts, for
+download or restore from any device. This is the one recovery path that works even
+after every device has taken a bad copy. Without the script the panel explains how to
+switch it on; everything else works as before.
+
+**Adding a device that already has data.** Pairing a device that is not empty asks
+first: *use the data in the cloud* (recommended — the device's own data is kept as a
+safety copy) or *combine* it with the cloud. The same choice appears when you type an
+existing sync ID into Connect.
+
+**The sync badge** in the header reads *Synced* only when the cloud really has
+everything; *Saving…* means edits are about to leave, *Offline* means they are kept
+here until the connection returns, and *Update needed* means this copy of the app is
+too old to sync safely.
+
 **Seeing the raw data.** In Supabase, **Table Editor → `snapshots`** shows one row per
 sync ID — the whole portfolio is a single JSON document in the `data` column, not a
 table per entity, so the editor is not much to look at. [`supabase/queries.sql`](supabase/queries.sql)
@@ -220,6 +245,14 @@ policies at all — the anon key cannot read or list it directly. The only way i
 `security definer` functions that require your **sync ID**, which is 160 random bits and
 never appears in this repository. Keep the sync ID (and the pairing QR/link, which
 contains it) to yourself and your data stays yours.
+
+## Putting it on your phone's home screen
+
+On iPhone, open the site in Safari, tap **Share → Add to Home Screen**. On Android,
+Chrome offers **Install app** from its menu. It then opens full screen with its own
+icon. There is deliberately no offline cache (service worker): a cached copy of old code
+is exactly how an out-of-date device once cost data here, and the app already tells you
+when a newer version is available.
 
 ## Running it locally
 

@@ -9,10 +9,12 @@ import {
   type ReactNode,
 } from 'react'
 import { COLLECTIONS, DATA_VERSION, NEVER, normalise, useStore } from './store'
+import { isEmpty } from './schema'
 import { mergeSnapshots, wouldDrop } from './merge'
 import { saveSafetyCopy } from './safety'
 import type { AppData } from './types'
 import {
+  NetworkError,
   loadSyncConfig,
   pullSnapshot,
   pushSnapshot,
@@ -21,7 +23,7 @@ import {
   type SyncConfig,
 } from './sync'
 
-export type SyncState = 'off' | 'idle' | 'syncing' | 'error' | 'outdated'
+export type SyncState = 'off' | 'idle' | 'syncing' | 'error' | 'outdated' | 'offline'
 
 interface SyncContextValue {
   config: SyncConfig | null
@@ -31,6 +33,8 @@ interface SyncContextValue {
   lastSyncedAt: string | null
   /** When this device last completed a sync, whether or not anything changed. */
   lastCheckedAt: string | null
+  /** True while this device holds edits the cloud has not received yet. */
+  pending: boolean
   /** Set when both copies changed since the last sync and one had to win. */
   conflictNote: string | null
   /** Set when a stale device's write was caught and the cloud copy repaired. */
@@ -40,7 +44,11 @@ interface SyncContextValue {
   /** Throws away this device's copy and takes the cloud's. */
   pullFromCloud: () => Promise<void>
   dismissRepair: () => void
-  connect: (config: SyncConfig) => Promise<void>
+  /**
+   * takeCloud: this device's data is replaced by the cloud copy on first sync
+   * (a safety copy is kept). Otherwise the two are merged.
+   */
+  connect: (config: SyncConfig, options?: { takeCloud?: boolean }) => Promise<void>
   disconnect: () => void
   syncNow: () => Promise<void>
   dismissConflict: () => void
@@ -84,9 +92,6 @@ function healStaleWrite(local: AppData, remoteRaw: AppData) {
   return { data: merged as unknown as AppData, repaired }
 }
 
-const isEmpty = (d: AppData) =>
-  d.ventures.length === 0 && d.investments.length === 0 && d.payouts.length === 0
-
 /** What the last successful sync left behind, used to tell edits from echoes. */
 interface Marker {
   remoteAt: string
@@ -119,6 +124,13 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(() => readMarker()?.remoteAt ?? null)
   const [repairNote, setRepairNote] = useState<string | null>(null)
   const [lastCheckedAt, setLastCheckedAt] = useState<string | null>(null)
+  const [syncedLocalAt, setSyncedLocalAt] = useState<string | null>(() => readMarker()?.localAt ?? null)
+
+  /** Records what was last agreed with the cloud, in storage and in state. */
+  const mark = useCallback((marker: Marker) => {
+    writeMarker(marker)
+    setSyncedLocalAt(marker.localAt)
+  }, [])
 
   // The engine reads the live data without re-subscribing every effect to it.
   const dataRef = useRef(data)
@@ -130,29 +142,32 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   /** Takes the cloud copy, first repairing it if an out-of-date device wrote it. */
   const adopt = useCallback(
-    async (cfg: SyncConfig, remote: RemoteSnapshot) => {
+    async (cfg: SyncConfig, remote: RemoteSnapshot, basedOn: string) => {
       const local = dataRef.current
       const { data: healed, repaired } = healStaleWrite(local, remote.data)
       if (wouldDrop(local, normalise(healed))) {
         saveSafetyCopy(local, 'Before taking a smaller copy from the cloud')
       }
       if (!repaired) {
-        replaceAll(remote.data, { keepTimestamp: true })
-        writeMarker({ remoteAt: remote.updatedAt, localAt: remote.data.updatedAt })
+        // basedOn guards against an edit made while the cloud copy was downloading:
+        // if one landed, the store merges instead of replacing, and the changed
+        // timestamp then triggers a push of the merged result.
+        replaceAll(remote.data, { keepTimestamp: true, basedOn })
+        mark({ remoteAt: remote.updatedAt, localAt: remote.data.updatedAt })
         setLastSyncedAt(remote.updatedAt)
         return
       }
       // Put the repaired copy back so every other device picks it up too.
       const fixed = { ...normalise(healed), updatedAt: new Date().toISOString() }
-      replaceAll(fixed, { keepTimestamp: true })
+      replaceAll(fixed, { keepTimestamp: true, basedOn })
       const remoteAt = await pushSnapshot(cfg, fixed)
-      writeMarker({ remoteAt, localAt: fixed.updatedAt })
+      mark({ remoteAt, localAt: fixed.updatedAt })
       setLastSyncedAt(remoteAt)
       setRepairNote(
         'Another device running an older version of the app saved without your loans. They were restored from this device and the cloud copy repaired. Reload the app on your other devices to update them.',
       )
     },
-    [replaceAll],
+    [replaceAll, mark],
   )
 
   const runSync = useCallback(async () => {
@@ -186,17 +201,17 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       if (!remote) {
         // Nothing stored yet — this device seeds the row.
         const remoteAt = await pushSnapshot(config, local)
-        writeMarker({ remoteAt, localAt: local.updatedAt })
+        mark({ remoteAt, localAt: local.updatedAt })
         setLastSyncedAt(remoteAt)
       } else if (local.updatedAt === NEVER && !isEmpty(remote.data)) {
         // A device that has never been edited always takes what is already there.
         // Checked by timestamp, not emptiness: a deliberate erase must still sync.
-        await adopt(config, remote)
+        await adopt(config, remote, local.updatedAt)
       } else if (remoteChanged && !localChanged) {
-        await adopt(config, remote)
+        await adopt(config, remote, local.updatedAt)
       } else if (localChanged && !remoteChanged) {
         const remoteAt = await pushSnapshot(config, local)
-        writeMarker({ remoteAt, localAt: local.updatedAt })
+        mark({ remoteAt, localAt: local.updatedAt })
         setLastSyncedAt(remoteAt)
       } else if (localChanged && remoteChanged) {
         // Both moved since the last sync: combine them rather than choosing one.
@@ -205,9 +220,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         if (wouldDrop(local, merged)) {
           saveSafetyCopy(local, 'Before merging with changes from another device')
         }
-        replaceAll(merged, { keepTimestamp: true })
+        replaceAll(merged, { keepTimestamp: true, basedOn: local.updatedAt })
         const remoteAt = await pushSnapshot(config, merged)
-        writeMarker({ remoteAt, localAt: merged.updatedAt })
+        mark({ remoteAt, localAt: merged.updatedAt })
         setLastSyncedAt(remoteAt)
         if (!isEmpty(local) && !isEmpty(remote.data)) {
           setConflictNote(
@@ -220,8 +235,19 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setLastCheckedAt(new Date().toISOString())
       setState('idle')
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-      setState('error')
+      const offline = typeof navigator !== 'undefined' && navigator.onLine === false
+      const network = e instanceof NetworkError
+      if (offline || network) {
+        setState('offline')
+        setError(
+          offline
+            ? 'You are offline. Changes are saved on this device and will sync when you are back online.'
+            : 'Could not reach the cloud. Changes are saved on this device and will sync on the next try.',
+        )
+      } else {
+        setError(e instanceof Error ? e.message : String(e))
+        setState('error')
+      }
     } finally {
       busy.current = false
       if (again.current) {
@@ -229,7 +255,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         setTimeout(() => void runSyncRef.current(), 0)
       }
     }
-  }, [config, adopt])
+  }, [config, adopt, mark])
 
   const runSyncRef = useRef(runSync)
   runSyncRef.current = runSync
@@ -254,9 +280,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     const remote = await pullSnapshot(config)
     if (!remote) return
     saveSafetyCopy(dataRef.current, 'Before replacing this device with the cloud copy')
-    await adopt(config, remote)
+    // An explicit "take the cloud's copy": no basedOn, so it replaces outright.
+    replaceAll(remote.data, { keepTimestamp: true })
+    mark({ remoteAt: remote.updatedAt, localAt: remote.data.updatedAt })
+    setLastSyncedAt(remote.updatedAt)
     setLastCheckedAt(new Date().toISOString())
-  }, [config, adopt])
+  }, [config, replaceAll, mark])
 
   // Sync on start, when the tab comes back to the front, and on a slow poll.
   useEffect(() => {
@@ -265,12 +294,18 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     const onVisible = () => {
       if (document.visibilityState === 'visible') void runSync()
     }
+    const onOffline = () => {
+      setState('offline')
+      setError('You are offline. Changes are saved on this device and will sync when you are back online.')
+    }
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('online', onVisible)
+    window.addEventListener('offline', onOffline)
     const timer = setInterval(() => void runSync(), POLL_MS)
     return () => {
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('online', onVisible)
+      window.removeEventListener('offline', onOffline)
       clearInterval(timer)
     }
   }, [config, runSync])
@@ -284,17 +319,28 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer)
   }, [config, data.updatedAt, runSync])
 
-  const connect = useCallback(async (next: SyncConfig) => {
-    saveSyncConfig(next)
-    try {
-      localStorage.removeItem(MARKER_KEY)
-    } catch {
-      /* nothing cached to clear */
-    }
-    setConfig(next)
-    setState('idle')
-    setError(null)
-  }, [])
+  const connect = useCallback(
+    async (next: SyncConfig, options?: { takeCloud?: boolean }) => {
+      saveSyncConfig(next)
+      if (options?.takeCloud) {
+        // Declare this device's data "already agreed" and the cloud "changed", so
+        // the first sync takes the cloud copy instead of merging into it. If the
+        // cloud turns out to be empty, this device's data seeds it as normal.
+        mark({ remoteAt: '', localAt: dataRef.current.updatedAt })
+      } else {
+        try {
+          localStorage.removeItem(MARKER_KEY)
+        } catch {
+          /* nothing cached to clear */
+        }
+        setSyncedLocalAt(null)
+      }
+      setConfig(next)
+      setState('idle')
+      setError(null)
+    },
+    [mark],
+  )
 
   const disconnect = useCallback(() => {
     saveSyncConfig(null)
@@ -307,6 +353,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     setState('off')
     setError(null)
     setLastSyncedAt(null)
+    setLastCheckedAt(null)
+    setSyncedLocalAt(null)
   }, [])
 
   const value = useMemo<SyncContextValue>(
@@ -318,6 +366,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       conflictNote,
       repairNote,
       lastCheckedAt,
+      pending: config !== null && syncedLocalAt !== data.updatedAt,
       connect,
       disconnect,
       syncNow: runSync,

@@ -1,4 +1,5 @@
 import type { AppData, Investment, Payout, Venture } from './types'
+import { parseIsoDate } from './dates'
 
 export interface VentureStats {
   invested: number
@@ -29,8 +30,12 @@ export function statsFor(
   const theirs = payouts.filter((p) => p.ventureId === venture.id)
   const invested = sum(mine.map((i) => i.amount))
   const returned = sum(theirs.map((p) => p.amount))
+  // A closed venture has been exited: whatever it fetched is recorded as a return,
+  // so its last valuation no longer counts — the same rule the portfolio total uses.
   const currentValue =
-    typeof venture.currentValue === 'number' && venture.currentValue > 0
+    venture.status !== 'closed' &&
+    typeof venture.currentValue === 'number' &&
+    venture.currentValue > 0
       ? venture.currentValue
       : undefined
   const net = returned + (currentValue ?? 0) - invested
@@ -59,9 +64,9 @@ export interface Flow {
 /** Cash flows from the investor's point of view: money out negative, money in positive. */
 export function flowsFor(venture: Venture, investments: Investment[], payouts: Payout[]): Flow[] {
   const flows: Flow[] = [
-    ...investments.map((i) => ({ date: new Date(i.date), amount: -i.amount })),
-    ...payouts.map((p) => ({ date: new Date(p.date), amount: p.amount })),
-  ].filter((f) => !Number.isNaN(f.date.getTime()) && f.amount !== 0)
+    ...investments.map((i) => ({ date: parseIsoDate(i.date), amount: -i.amount })),
+    ...payouts.map((p) => ({ date: parseIsoDate(p.date), amount: p.amount })),
+  ].filter((f): f is Flow => f.date !== null && f.amount !== 0)
 
   if (venture.currentValue && venture.currentValue > 0 && venture.status !== 'closed') {
     flows.push({ date: new Date(), amount: venture.currentValue })

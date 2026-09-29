@@ -1,5 +1,5 @@
 import type { AppData } from './types'
-import { COLLECTIONS } from './store'
+import { countsOf } from './schema'
 
 /**
  * A short history of this device's data from just before sync replaced it with
@@ -27,9 +27,7 @@ export function listSafetyCopies(): SafetyCopy[] {
 }
 
 export function saveSafetyCopy(data: AppData, reason: string) {
-  const counts = Object.fromEntries(
-    COLLECTIONS.map((key) => [key, Array.isArray(data[key]) ? data[key].length : 0]),
-  )
+  const counts = countsOf(data)
   const copy: SafetyCopy = { savedAt: new Date().toISOString(), reason, counts, data }
   try {
     const next = [copy, ...listSafetyCopies()].slice(0, KEEP)

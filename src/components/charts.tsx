@@ -52,7 +52,9 @@ export function Donut({
   const arcs = slices.map((s) => {
     const sweep = (s.value / total) * TAU
     const from = angle + (slices.length > 1 ? gap / 2 : 0)
-    const to = angle + sweep - (slices.length > 1 ? gap / 2 : 0)
+    // An arc whose end meets its start is degenerate and SVG draws nothing, so a
+    // single 100% slice would leave an empty chart. Stop a hair short of a circle.
+    const to = Math.min(angle + sweep - (slices.length > 1 ? gap / 2 : 0), from + TAU - 1e-4)
     angle += sweep
     return { slice: s, d: arcPath(cx, cy, r, inner, from, Math.max(from, to)) }
   })

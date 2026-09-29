@@ -290,7 +290,7 @@ export default function PersonDetail({ dark }: { dark: boolean }) {
             r.amount,
             r.notes,
             '',
-            'Received',
+            r.direction === 'out' ? 'Received' : 'Paid',
             '',
           ]),
         ],
@@ -458,7 +458,7 @@ export default function PersonDetail({ dark }: { dark: boolean }) {
           personId={person.id}
           repayment={repaymentModal === 'new' ? undefined : repaymentModal}
           defaultDirection={tab}
-          suggested={side.outstanding}
+          suggested={{ out: stats.out.outstanding, in: stats.in.outstanding }}
           onClose={() => setRepaymentModal(null)}
         />
       )}

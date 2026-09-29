@@ -1,4 +1,5 @@
 import type { Settings } from './types'
+import { parseIsoDate } from './dates'
 
 export function formatMoney(value: number, settings: Settings, opts?: { compact?: boolean }) {
   try {
@@ -23,8 +24,9 @@ export function formatNumber(value: number, locale: string) {
 
 export function formatDate(iso: string, locale: string) {
   if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
+  // Read as a local calendar date, so no timezone can shift it by a day.
+  const d = parseIsoDate(iso)
+  if (!d) return iso
   try {
     return new Intl.DateTimeFormat(locale || undefined, {
       day: '2-digit',
@@ -57,8 +59,8 @@ export function formatPercent(value: number | undefined, digits = 1) {
 /** "3 years, 2 months" style span used on venture headers. */
 export function holdingPeriod(from?: string) {
   if (!from) return '—'
-  const start = new Date(from)
-  if (Number.isNaN(start.getTime())) return '—'
+  const start = parseIsoDate(from)
+  if (!start) return '—'
   const months = Math.max(
     0,
     (new Date().getFullYear() - start.getFullYear()) * 12 +

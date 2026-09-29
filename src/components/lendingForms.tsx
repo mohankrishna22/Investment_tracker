@@ -201,8 +201,9 @@ export function LoanForm({
           <Field label="Amount">
             <input
               type="number"
+              inputMode="decimal"
               required
-              min="0"
+              min="0.01"
               step="any"
               autoFocus
               value={form.amount}
@@ -214,6 +215,7 @@ export function LoanForm({
             <input
               type="date"
               value={form.dueDate}
+              min={form.date}
               onChange={(e) => set({ dueDate: e.target.value })}
             />
           </Field>
@@ -273,8 +275,8 @@ export function RepaymentForm({
   personId: string
   repayment?: Repayment
   onClose: () => void
-  /** Pre-fills with what is still owed, which is usually the right answer. */
-  suggested?: number
+  /** What is still owed each way; pre-fills "settle in full" for the chosen side. */
+  suggested?: Partial<Record<LoanDirection, number>>
   defaultDirection?: LoanDirection
 }) {
   const { addRepayment, updateRepayment, data } = useStore()
@@ -287,6 +289,7 @@ export function RepaymentForm({
   })
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }))
   const incoming = form.direction === 'out'
+  const owed = suggested?.[form.direction]
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -351,22 +354,23 @@ export function RepaymentForm({
           <Field label="Amount" wide>
             <input
               type="number"
+              inputMode="decimal"
               required
-              min="0"
+              min="0.01"
               step="any"
               autoFocus
               value={form.amount}
               placeholder="0"
               onChange={(e) => set({ amount: e.target.value })}
             />
-            {!repayment && suggested !== undefined && suggested > 0 && (
+            {!repayment && owed !== undefined && owed > 0 && (
               <button
                 type="button"
                 className="btn-sm"
                 style={{ marginTop: 8 }}
-                onClick={() => set({ amount: String(suggested) })}
+                onClick={() => set({ amount: String(owed) })}
               >
-                Settle in full ({Math.round(suggested).toLocaleString()})
+                Settle in full ({Math.round(owed).toLocaleString()})
               </button>
             )}
           </Field>

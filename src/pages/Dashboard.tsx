@@ -90,7 +90,7 @@ export default function Dashboard({ dark }: { dark: boolean }) {
         id: p.id,
         kind: 'in' as const,
         date: p.date,
-        title: `${p.kind[0].toUpperCase()}${p.kind.slice(1)} received`,
+        title: p.kind ? `${p.kind[0].toUpperCase()}${p.kind.slice(1)} received` : 'Return received',
         venture: name(p.ventureId),
         ventureId: p.ventureId,
         amount: p.amount,
