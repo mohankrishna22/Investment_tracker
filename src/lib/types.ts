@@ -102,6 +102,12 @@ export interface AppData {
   people: Person[]
   loans: Loan[]
   repayments: Repayment[]
+  /**
+   * Ids deleted on some device, with when. Sync merges two copies by taking the
+   * union of their records, so without this a deletion on one device would be
+   * brought straight back by the other.
+   */
+  deleted: Record<string, string>
   settings: Settings
 }
 

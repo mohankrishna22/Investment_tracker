@@ -533,3 +533,22 @@ tr:hover .row-actions { opacity: 1; }
   .app-banner { padding: 10px 14px; }
   .app-banner button { width: 100%; justify-content: center; min-height: 40px; }
 }
+
+.sync-times {
+  display: flex;
+  gap: 8px 28px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.sync-times > div { display: flex; flex-direction: column; }
+.sync-times .k {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sync-times .v { font-size: 14px; font-weight: 600; }

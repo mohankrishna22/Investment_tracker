@@ -117,9 +117,34 @@ function Diagnostics({ locale }: { locale: string }) {
   )
 }
 
+/** "just now", "3 min ago", or a time for anything older than an hour. */
+function relativeTime(iso: string, locale: string) {
+  const seconds = Math.round((Date.now() - Date.parse(iso)) / 1000)
+  if (seconds < 45) return 'just now'
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 60) return `${minutes} min ago`
+  return new Date(iso).toLocaleString(locale || undefined)
+}
+
 export default function SyncCard({ locale }: { locale: string }) {
-  const { config, state, error, lastSyncedAt, conflictNote, connect, disconnect, syncNow, dismissConflict } =
-    useSync()
+  const {
+    config,
+    state,
+    error,
+    lastSyncedAt,
+    lastCheckedAt,
+    conflictNote,
+    connect,
+    disconnect,
+    syncNow,
+    dismissConflict,
+  } = useSync()
+  // Re-render every 30s so "checked 2 min ago" stays true without a click.
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const timer = setInterval(() => tick((n) => n + 1), 30_000)
+    return () => clearInterval(timer)
+  }, [])
   const [form, setForm] = useState({ url: '', anonKey: '', syncId: '' })
   const [qr, setQr] = useState('')
   const [showPairing, setShowPairing] = useState(false)
@@ -234,15 +259,27 @@ export default function SyncCard({ locale }: { locale: string }) {
         )}
 
         <p className="muted" style={{ marginTop: 0 }}>
-          Connected to <strong>{new URL(config.url).host}</strong>
-          {lastSyncedAt && (
-            <>
-              {' '}
-              · last synced {new Date(lastSyncedAt).toLocaleString(locale || undefined)}
-            </>
-          )}
-          . Changes save automatically and pull in when you switch back to this tab.
+          Connected to <strong>{new URL(config.url).host}</strong>. Changes save automatically
+          and pull in when you switch back to this tab.
         </p>
+        <div className="sync-times">
+          <div>
+            <span className="k">Last checked</span>
+            <span className="v">
+              {state === 'syncing'
+                ? 'checking now…'
+                : lastCheckedAt
+                  ? relativeTime(lastCheckedAt, locale)
+                  : 'not yet this session'}
+            </span>
+          </div>
+          <div>
+            <span className="k">Cloud last changed</span>
+            <span className="v">
+              {lastSyncedAt ? new Date(lastSyncedAt).toLocaleString(locale || undefined) : '—'}
+            </span>
+          </div>
+        </div>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button onClick={() => void syncNow()} disabled={state === 'syncing'}>

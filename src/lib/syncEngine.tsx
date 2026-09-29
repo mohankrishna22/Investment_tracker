@@ -9,6 +9,8 @@ import {
   type ReactNode,
 } from 'react'
 import { COLLECTIONS, DATA_VERSION, NEVER, normalise, useStore } from './store'
+import { mergeSnapshots, wouldDrop } from './merge'
+import { saveSafetyCopy } from './safety'
 import type { AppData } from './types'
 import {
   loadSyncConfig,
@@ -25,7 +27,10 @@ interface SyncContextValue {
   config: SyncConfig | null
   state: SyncState
   error: string | null
+  /** When the cloud copy last changed, from any device. */
   lastSyncedAt: string | null
+  /** When this device last completed a sync, whether or not anything changed. */
+  lastCheckedAt: string | null
   /** Set when both copies changed since the last sync and one had to win. */
   conflictNote: string | null
   /** Set when a stale device's write was caught and the cloud copy repaired. */
@@ -113,6 +118,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [conflictNote, setConflictNote] = useState<string | null>(null)
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(() => readMarker()?.remoteAt ?? null)
   const [repairNote, setRepairNote] = useState<string | null>(null)
+  const [lastCheckedAt, setLastCheckedAt] = useState<string | null>(null)
 
   // The engine reads the live data without re-subscribing every effect to it.
   const dataRef = useRef(data)
@@ -125,7 +131,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   /** Takes the cloud copy, first repairing it if an out-of-date device wrote it. */
   const adopt = useCallback(
     async (cfg: SyncConfig, remote: RemoteSnapshot) => {
-      const { data: healed, repaired } = healStaleWrite(dataRef.current, remote.data)
+      const local = dataRef.current
+      const { data: healed, repaired } = healStaleWrite(local, remote.data)
+      if (wouldDrop(local, normalise(healed))) {
+        saveSafetyCopy(local, 'Before taking a smaller copy from the cloud')
+      }
       if (!repaired) {
         replaceAll(remote.data, { keepTimestamp: true })
         writeMarker({ remoteAt: remote.updatedAt, localAt: remote.data.updatedAt })
@@ -189,26 +199,25 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         writeMarker({ remoteAt, localAt: local.updatedAt })
         setLastSyncedAt(remoteAt)
       } else if (localChanged && remoteChanged) {
-        // Both moved since the last sync. Newest edit wins; say so out loud.
-        const bothHaveData = !isEmpty(local) && !isEmpty(remote.data)
-        if ((remote.data.updatedAt ?? '') > local.updatedAt) {
-          await adopt(config, remote)
-          if (bothHaveData)
-            setConflictNote(
-              'This device and another one both changed data since the last sync. The other device was more recent, so its version was kept.',
-            )
-        } else {
-          const remoteAt = await pushSnapshot(config, local)
-          writeMarker({ remoteAt, localAt: local.updatedAt })
-          setLastSyncedAt(remoteAt)
-          if (bothHaveData)
-            setConflictNote(
-              'This device and another one both changed data since the last sync. This device was more recent, so its version was kept.',
-            )
+        // Both moved since the last sync: combine them rather than choosing one.
+        const { data: healed } = healStaleWrite(local, remote.data)
+        const merged = mergeSnapshots(local, normalise(healed))
+        if (wouldDrop(local, merged)) {
+          saveSafetyCopy(local, 'Before merging with changes from another device')
+        }
+        replaceAll(merged, { keepTimestamp: true })
+        const remoteAt = await pushSnapshot(config, merged)
+        writeMarker({ remoteAt, localAt: merged.updatedAt })
+        setLastSyncedAt(remoteAt)
+        if (!isEmpty(local) && !isEmpty(remote.data)) {
+          setConflictNote(
+            'This device and another one both changed data since the last sync. Both sets of changes were kept and combined.',
+          )
         }
       } else {
         setLastSyncedAt(remote.updatedAt)
       }
+      setLastCheckedAt(new Date().toISOString())
       setState('idle')
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -244,7 +253,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     if (!config) return
     const remote = await pullSnapshot(config)
     if (!remote) return
+    saveSafetyCopy(dataRef.current, 'Before replacing this device with the cloud copy')
     await adopt(config, remote)
+    setLastCheckedAt(new Date().toISOString())
   }, [config, adopt])
 
   // Sync on start, when the tab comes back to the front, and on a slow poll.
@@ -306,6 +317,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       lastSyncedAt,
       conflictNote,
       repairNote,
+      lastCheckedAt,
       connect,
       disconnect,
       syncNow: runSync,
@@ -321,6 +333,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       lastSyncedAt,
       conflictNote,
       repairNote,
+      lastCheckedAt,
       connect,
       disconnect,
       runSync,

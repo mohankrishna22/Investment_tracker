@@ -52,6 +52,7 @@ export const emptyData = (): AppData => ({
   people: [],
   loans: [],
   repayments: [],
+  deleted: {},
   settings: {
     currency: 'INR',
     locale: 'en-IN',
@@ -59,6 +60,20 @@ export const emptyData = (): AppData => ({
     ownerName: '',
   },
 })
+
+/** Every record id in a snapshot, across all collections. */
+export function allIds(d: AppData): string[] {
+  return COLLECTIONS.flatMap((key) => (d[key] as { id: string }[]).map((item) => item.id))
+}
+
+/** Records the given ids as deleted now, so the deletion survives a merge. */
+function tombstone(d: AppData, ids: string[]): AppData['deleted'] {
+  if (ids.length === 0) return d.deleted
+  const at = new Date().toISOString()
+  const next = { ...d.deleted }
+  for (const id of ids) next[id] = at
+  return next
+}
 
 export const uid = () =>
   Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
@@ -93,6 +108,10 @@ export function normalise(raw: unknown): AppData {
     repayments: Array.isArray(input.repayments)
       ? input.repayments.map((r) => ({ ...r, direction: r.direction ?? 'out' }))
       : [],
+    deleted:
+      input.deleted && typeof input.deleted === 'object' && !Array.isArray(input.deleted)
+        ? input.deleted
+        : {},
     settings: { ...base.settings, ...(input.settings ?? {}) },
   }
 }
@@ -191,6 +210,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ventures: d.ventures.filter((v) => v.id !== id),
       investments: d.investments.filter((i) => i.ventureId !== id),
       payouts: d.payouts.filter((p) => p.ventureId !== id),
+      deleted: tombstone(d, [
+        id,
+        ...d.investments.filter((i) => i.ventureId === id).map((i) => i.id),
+        ...d.payouts.filter((p) => p.ventureId === id).map((p) => p.id),
+      ]),
     }))
   }, [mutate])
 
@@ -206,7 +230,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [mutate])
 
   const deleteInvestment = useCallback<Store['deleteInvestment']>((id) => {
-    mutate((d) => ({ ...d, investments: d.investments.filter((i) => i.id !== id) }))
+    mutate((d) => ({
+      ...d,
+      investments: d.investments.filter((i) => i.id !== id),
+      deleted: tombstone(d, [id]),
+    }))
   }, [mutate])
 
   const addPayout = useCallback<Store['addPayout']>((p) => {
@@ -221,7 +249,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [mutate])
 
   const deletePayout = useCallback<Store['deletePayout']>((id) => {
-    mutate((d) => ({ ...d, payouts: d.payouts.filter((p) => p.id !== id) }))
+    mutate((d) => ({
+      ...d,
+      payouts: d.payouts.filter((p) => p.id !== id),
+      deleted: tombstone(d, [id]),
+    }))
   }, [mutate])
 
   const addPerson = useCallback<Store['addPerson']>(
@@ -251,6 +283,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       people: d.people.filter((p) => p.id !== id),
       loans: d.loans.filter((l) => l.personId !== id),
       repayments: d.repayments.filter((r) => r.personId !== id),
+      deleted: tombstone(d, [
+        id,
+        ...d.loans.filter((l) => l.personId === id).map((l) => l.id),
+        ...d.repayments.filter((r) => r.personId === id).map((r) => r.id),
+      ]),
     }))
   }, [mutate])
 
@@ -263,7 +300,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [mutate])
 
   const deleteLoan = useCallback<Store['deleteLoan']>((id) => {
-    mutate((d) => ({ ...d, loans: d.loans.filter((l) => l.id !== id) }))
+    mutate((d) => ({ ...d, loans: d.loans.filter((l) => l.id !== id), deleted: tombstone(d, [id]) }))
   }, [mutate])
 
   const addRepayment = useCallback<Store['addRepayment']>((r) => {
@@ -278,7 +315,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [mutate])
 
   const deleteRepayment = useCallback<Store['deleteRepayment']>((id) => {
-    mutate((d) => ({ ...d, repayments: d.repayments.filter((r) => r.id !== id) }))
+    mutate((d) => ({
+      ...d,
+      repayments: d.repayments.filter((r) => r.id !== id),
+      deleted: tombstone(d, [id]),
+    }))
   }, [mutate])
 
   const updateSettings = useCallback<Store['updateSettings']>((patch) => {
@@ -287,16 +328,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const replaceAll = useCallback<Store['replaceAll']>((next, options) => {
     const normalised = normalise(next)
-    // Adopting a remote snapshot keeps its timestamp; a manual restore is a new change.
-    setData(
-      options?.keepTimestamp
-        ? normalised
-        : { ...normalised, updatedAt: new Date().toISOString() },
-    )
+    // Adopting a remote snapshot keeps its timestamp and its deletion record as-is.
+    if (options?.keepTimestamp) {
+      setData(normalised)
+      return
+    }
+    // A restore or sample load is a new change. Anything it drops is recorded as
+    // deleted so the drop reaches other devices; anything it brings back has its
+    // old deletion cleared, or a merge elsewhere would discard it again.
+    setData((current) => {
+      const incoming = new Set(allIds(normalised))
+      const dropped = allIds(current).filter((id) => !incoming.has(id))
+      const deleted = { ...current.deleted, ...normalised.deleted }
+      for (const id of incoming) delete deleted[id]
+      const at = new Date().toISOString()
+      for (const id of dropped) deleted[id] = at
+      return { ...normalised, deleted, updatedAt: at }
+    })
   }, [])
-  // An erase is a deliberate edit, so it is stamped and syncs out like any other.
+  // An erase is a deliberate edit: stamped, and every record it removes is recorded
+  // as deleted, so it syncs out rather than being merged back in.
   const resetAll = useCallback(
-    () => setData({ ...emptyData(), updatedAt: new Date().toISOString() }),
+    () =>
+      setData((current) => ({
+        ...emptyData(),
+        settings: current.settings,
+        deleted: tombstone(current, allIds(current)),
+        updatedAt: new Date().toISOString(),
+      })),
     [],
   )
 

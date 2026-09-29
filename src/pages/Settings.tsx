@@ -5,6 +5,7 @@ import { download } from '../lib/csv'
 import { ConfirmButton, Field } from '../components/ui'
 import { normalise } from '../lib/store'
 import SyncCard from '../components/SyncCard'
+import SafetyCopies from '../components/SafetyCopies'
 
 const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'AUD', 'CAD', 'JPY']
 const LOCALES = ['en-IN', 'en-US', 'en-GB', 'de-DE', 'fr-FR', 'ja-JP']
@@ -143,6 +144,8 @@ export default function Settings() {
             <div className="inline-note">Restoring replaces everything currently stored.</div>
           </div>
         </div>
+
+        <SafetyCopies locale={data.settings.locale} />
 
         <div className="card">
           <div className="card-head">

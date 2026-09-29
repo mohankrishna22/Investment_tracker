@@ -92,9 +92,21 @@ same picture shows up on every device you pair.
 
 **How it syncs.** Local changes push about a second and a half after you stop typing.
 Each device pulls when it starts, when you switch back to its tab, and once a minute.
-If the same row was edited on two devices since their last sync, the most recent edit
-wins and the app says so rather than merging silently — so a backup is still worth
-taking before big changes.
+
+When two devices have both changed things since they last agreed, sync **merges**
+them rather than picking one: every record from either side is kept, so a loan added
+on the Mac and a repayment added on the phone both survive. Deletions are recorded
+(ids with a timestamp, kept for a year), so an item deleted on one device is not
+brought back by the other. Only when the *same* record was edited on both devices does
+one edit win — the more recent copy's — and only for that record.
+
+**Automatic safety copies.** Whenever sync is about to replace a device's data with
+something holding fewer records, it first keeps the previous copy on that device —
+the last ten, under **Settings → Automatic safety copies** — with Download and Restore.
+Restoring is an ordinary change, so it syncs out to every other device. This is the
+net under everything else: if sync ever does the wrong thing, the last good copy is
+still there. A JSON backup you download yourself is still worth having too, because
+safety copies live in the browser and go if its site data is cleared.
 
 **Keeping the project awake.** Supabase pauses a free-tier project after about a week
 with no activity. Paused is not deleted — the data stays on disk and one click in the
