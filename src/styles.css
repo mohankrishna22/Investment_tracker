@@ -512,3 +512,24 @@ tr:hover .row-actions { opacity: 1; }
   color: var(--text);
   box-shadow: 0 1px 2px rgba(18, 28, 53, 0.08);
 }
+
+/* ---------- app-wide notices ---------- */
+.app-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 24px;
+  font-size: 14px;
+  background: var(--accent-soft);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.app-banner span { flex: 1; min-width: 200px; }
+.app-banner.danger {
+  background: color-mix(in srgb, var(--neg) 12%, var(--surface));
+  border-bottom-color: color-mix(in srgb, var(--neg) 35%, transparent);
+}
+@media (max-width: 720px) {
+  .app-banner { padding: 10px 14px; }
+  .app-banner button { width: 100%; justify-content: center; min-height: 40px; }
+}

@@ -170,6 +170,32 @@ answering, which reaches you as an email rather than as silence.
 Its one weakness is GitHub's rule that a repository with no pushes for 60 days has its
 scheduled workflows disabled. That is why the local scheduler exists alongside it.
 
+**When a device is out of date.** Phones keep a tab alive for days, resuming it from
+memory rather than reloading, so a device can end up running an older build of the
+app. Three things guard against that:
+
+- Each build publishes `version.json`. A running tab checks it on start, when it comes
+  back to the front, and every five minutes, and shows **"A newer version of the app
+  is available"** with a Reload button when it is behind. The reload adds a query
+  string, so it cannot be handed the same stale page from the browser's cache.
+- Saved data carries a `version`. A build that finds the cloud copy was written by a
+  *newer* build stops syncing and asks to be reloaded, instead of overwriting data it
+  does not fully understand.
+- If an older build does save over the cloud copy without the collections it did not
+  know about — which is how loans were once wiped by an out-of-date phone — the next
+  up-to-date device notices the missing collections, restores them from its own
+  copy, repairs the cloud, and says so. Only collections absent from the saved data
+  are restored, so this can never bring back something that was deliberately deleted.
+
+Separately, the app now keeps any field it does not recognise instead of dropping it,
+so future additions are safe from older builds by construction.
+
+**Checking a device against the cloud.** Settings → Cloud sync → **Check cloud copy**
+shows this device's counts beside the cloud's for every kind of record, with any
+mismatch in red, plus the build the device is running. **Replace this device with the
+cloud copy** discards the device's local data and takes the cloud's — the fix for a
+device that has drifted.
+
 **Seeing the raw data.** In Supabase, **Table Editor → `snapshots`** shows one row per
 sync ID — the whole portfolio is a single JSON document in the `data` column, not a
 table per entity, so the editor is not much to look at. [`supabase/queries.sql`](supabase/queries.sql)

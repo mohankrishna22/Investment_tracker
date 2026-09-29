@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
-import { useSync } from '../lib/syncEngine'
+import { useSync, type CloudSummary } from '../lib/syncEngine'
+import { useStore } from '../lib/store'
+import { BUILD_ID } from '../lib/useUpdateCheck'
 import { newSyncId, normaliseUrl, pairingLink } from '../lib/sync'
 import { ConfirmButton, Field } from './ui'
 
@@ -9,6 +11,110 @@ const STATUS_TEXT: Record<string, string> = {
   idle: 'Up to date',
   syncing: 'Syncing…',
   error: 'Sync failed',
+  outdated: 'Update needed',
+}
+
+const LABELS: Record<string, string> = {
+  ventures: 'Investment types',
+  investments: 'Investments',
+  payouts: 'Returns',
+  people: 'People',
+  loans: 'Loans',
+  repayments: 'Repayments',
+}
+
+/**
+ * Puts this device's counts beside the cloud's, so "is my phone showing the same
+ * thing as my Mac?" has an answer you can read rather than guess at.
+ */
+function Diagnostics({ locale }: { locale: string }) {
+  const { inspectCloud, pullFromCloud } = useSync()
+  const { data } = useStore()
+  const [cloud, setCloud] = useState<CloudSummary | null | 'loading' | 'error'>(null)
+  const [pulled, setPulled] = useState(false)
+
+  const check = async () => {
+    setCloud('loading')
+    try {
+      setCloud((await inspectCloud()) ?? 'error')
+    } catch {
+      setCloud('error')
+    }
+  }
+
+  const local = data as unknown as Record<string, unknown[]>
+
+  return (
+    <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <strong style={{ fontSize: 14 }}>Compare with the cloud</strong>
+        <span className="muted" style={{ fontSize: 12.5 }}>
+          App build <code>{BUILD_ID}</code>
+        </span>
+        <div style={{ flex: 1 }} />
+        <button className="btn-sm" onClick={() => void check()} disabled={cloud === 'loading'}>
+          {cloud === 'loading' ? 'Checking…' : 'Check cloud copy'}
+        </button>
+      </div>
+
+      {cloud === 'error' && (
+        <p className="neg" style={{ fontSize: 13.5 }}>
+          Could not read the cloud copy. Check the connection and try again.
+        </p>
+      )}
+
+      {cloud && typeof cloud === 'object' && (
+        <>
+          <div className="table-wrap" style={{ marginTop: 10 }}>
+            <table>
+              <thead>
+                <tr>
+                  <th />
+                  <th className="num">This device</th>
+                  <th className="num">Cloud</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(LABELS).map(([key, label]) => {
+                  const mine = Array.isArray(local[key]) ? local[key].length : 0
+                  const theirs = cloud.counts[key as keyof CloudSummary['counts']]
+                  const differs = theirs !== mine
+                  return (
+                    <tr key={key}>
+                      <td>{label}</td>
+                      <td className="num">{mine}</td>
+                      <td className={`num ${differs ? 'neg' : ''}`}>
+                        {theirs === null ? 'missing' : theirs}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="inline-note">
+            Cloud copy last written{' '}
+            {new Date(cloud.updatedAt).toLocaleString(locale || undefined)} by app data
+            version {cloud.version}. Red means this device and the cloud disagree.
+          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+            <ConfirmButton
+              className="btn btn-sm"
+              label="Replace this device with the cloud copy"
+              confirmLabel="Discard this device's copy?"
+              onConfirm={() => {
+                void pullFromCloud().then(() => {
+                  setPulled(true)
+                  void check()
+                })
+              }}
+            />
+            {pulled && <span className="pos" style={{ fontSize: 13 }}>Done — this device now matches the cloud.</span>}
+          </div>
+        </>
+      )}
+    </div>
+  )
 }
 
 export default function SyncCard({ locale }: { locale: string }) {
@@ -106,7 +212,7 @@ export default function SyncCard({ locale }: { locale: string }) {
         <h3>Cloud sync</h3>
         <div className="spacer" />
         <span
-          className={`badge badge-plain ${state === 'error' ? 'planned' : state === 'idle' ? 'active' : ''}`}
+          className={`badge badge-plain ${state === 'error' || state === 'outdated' ? 'planned' : state === 'idle' ? 'active' : ''}`}
         >
           {STATUS_TEXT[state] ?? state}
         </span>
@@ -182,6 +288,8 @@ export default function SyncCard({ locale }: { locale: string }) {
             </div>
           </div>
         )}
+
+        <Diagnostics locale={locale} />
       </div>
     </div>
   )

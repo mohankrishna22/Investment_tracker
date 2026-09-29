@@ -20,7 +20,22 @@ import type {
 import { nextPaletteColor } from './types'
 
 const STORAGE_KEY = 'investment-tracker/v1'
-const DATA_VERSION = 1
+
+/**
+ * Bumped whenever the shape of AppData grows. 1 = investments only; 2 = loans in
+ * both directions. Sync uses it to spot a device running an older build.
+ */
+export const DATA_VERSION = 2
+
+/** The collections a build of each version knows how to carry. */
+export const COLLECTIONS = [
+  'ventures',
+  'investments',
+  'payouts',
+  'people',
+  'loans',
+  'repayments',
+] as const
 
 /**
  * A store nobody has touched must never look freshly edited: stamping it with
@@ -50,12 +65,20 @@ export const uid = () =>
 
 export const today = () => new Date().toISOString().slice(0, 10)
 
-/** Merges stored JSON onto a fresh shape so older/partial backups still load. */
+/**
+ * Merges stored JSON onto a fresh shape so older/partial backups still load.
+ *
+ * Fields this build does not recognise are carried through untouched rather than
+ * dropped. A build that silently discards what it does not understand will, on its
+ * next save, erase everything a newer build added — which is exactly how an out-of-
+ * date phone once wiped every loan from the cloud.
+ */
 export function normalise(raw: unknown): AppData {
   const base = emptyData()
   if (!raw || typeof raw !== 'object') return base
   const input = raw as Partial<AppData>
   return {
+    ...(input as object),
     version: DATA_VERSION,
     updatedAt: typeof input.updatedAt === 'string' ? input.updatedAt : base.updatedAt,
     ventures: Array.isArray(input.ventures) ? input.ventures : [],
