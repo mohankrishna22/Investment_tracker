@@ -250,7 +250,15 @@ contains it) to yourself and your data stays yours.
 
 On iPhone, open the site in Safari, tap **Share → Add to Home Screen**. On Android,
 Chrome offers **Install app** from its menu. It then opens full screen with its own
-icon. There is deliberately no offline cache (service worker): a cached copy of old code
+icon.
+
+**On iPhone the home-screen app has its own storage**, separate from Safari's, so it
+starts empty and needs connecting like a new device. Scanning the pairing QR opens
+Safari, not the home-screen app, so instead: on a connected device use **Settings →
+Cloud sync → Pair another device → Copy pairing link**, then in the home-screen app's
+**Settings → Cloud sync** paste it into *Already syncing on another device?* and tap
+**Join**. With the same Apple ID on both, copying on the Mac and pasting on the iPhone
+works directly (Universal Clipboard). There is deliberately no offline cache (service worker): a cached copy of old code
 is exactly how an out-of-date device once cost data here, and the app already tells you
 when a newer version is available.
 

@@ -4,7 +4,7 @@ import { useSync, type CloudSummary } from '../lib/syncEngine'
 import { useStore } from '../lib/store'
 import { BUILD_ID } from '../lib/useUpdateCheck'
 import { isEmpty } from '../lib/schema'
-import { newSyncId, normaliseUrl, pairingLink } from '../lib/sync'
+import { decodePairing, newSyncId, normaliseUrl, pairingLink } from '../lib/sync'
 import { ConfirmButton, Field } from './ui'
 
 const STATUS_TEXT: Record<string, string> = {
@@ -153,6 +153,36 @@ export default function SyncCard({ locale }: { locale: string }) {
   // copy that may already hold everything; default to taking it, not merging.
   const [takeCloud, setTakeCloud] = useState(true)
   const joiningExisting = form.syncId.trim() !== '' && !isEmpty(data)
+  const [pasted, setPasted] = useState('')
+  const [pasteError, setPasteError] = useState('')
+
+  /**
+   * Accepts a whole pairing link or just the code after "#/pair/". This is how a
+   * home-screen app on iPhone joins: it has its own storage, and scanning the QR
+   * opens Safari rather than the home-screen app, so it cannot pair that way.
+   */
+  const connectFromPaste = (text: string) => {
+    const payload = text.trim().split('#/pair/').pop()?.split(/[?\s]/)[0] ?? ''
+    const decoded = decodePairing(payload)
+    if (!decoded) {
+      setPasteError(
+        "That doesn't look like a pairing link. On a connected device, open Settings → Cloud sync → Pair another device → Copy pairing link.",
+      )
+      return
+    }
+    setPasteError('')
+    void connect(decoded, { takeCloud: !isEmpty(data) })
+  }
+
+  const pasteFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      setPasted(text)
+      connectFromPaste(text)
+    } catch {
+      setPasteError('Could not read the clipboard. Long-press the box below and choose Paste instead.')
+    }
+  }
   const [qr, setQr] = useState('')
   const [showPairing, setShowPairing] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -178,11 +208,46 @@ export default function SyncCard({ locale }: { locale: string }) {
           <h3>Cloud sync</h3>
         </div>
         <div className="card-pad">
-          <p className="muted" style={{ marginTop: 0 }}>
-            Connect a free Supabase project and this tracker will keep the same data on
-            every device you pair. Run <code>supabase/schema.sql</code> in the SQL editor
-            first, then paste the project URL and anon key from{' '}
-            <strong>Project Settings → API</strong>.
+          <div className="join-box">
+            <strong>Already syncing on another device?</strong>
+            <p className="muted" style={{ margin: '4px 0 10px' }}>
+              On that device open <strong>Settings → Cloud sync → Pair another device → Copy
+              pairing link</strong>, get the link over here (AirDrop, Messages, Notes — or on
+              Apple devices just copy on the Mac and paste here), then:
+            </p>
+            <div className="join-row">
+              <input
+                value={pasted}
+                placeholder="Paste the pairing link here"
+                autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                onChange={(e) => {
+                  setPasted(e.target.value)
+                  setPasteError('')
+                }}
+              />
+              <button className="btn-primary" disabled={!pasted.trim()} onClick={() => connectFromPaste(pasted)}>
+                Join
+              </button>
+            </div>
+            {'clipboard' in navigator && (
+              <button className="btn-sm" style={{ marginTop: 8 }} onClick={() => void pasteFromClipboard()}>
+                Paste from clipboard and join
+              </button>
+            )}
+            {pasteError && (
+              <p className="neg" style={{ fontSize: 13.5, marginBottom: 0 }}>
+                {pasteError}
+              </p>
+            )}
+          </div>
+
+          <p className="muted" style={{ marginTop: 18 }}>
+            <strong>Setting up sync for the first time?</strong> Connect a free Supabase project
+            and this tracker will keep the same data on every device you pair. Run{' '}
+            <code>supabase/schema.sql</code> in the SQL editor first, then paste the project URL
+            and anon key from <strong>Project Settings → API</strong>.
           </p>
           <form
             className="form-grid"
